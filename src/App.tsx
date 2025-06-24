@@ -1,10 +1,26 @@
 // src/App.tsx
-import TaskPage from './pages/TaskPage';
-import './index.css' // Pastikan file css diimpor jika styling ada di sana
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import AppLayout from './components/AppLayout'; // <-- Import layout baru
+import DashboardPage from './pages/DashboardPage';
+import OngoingPage from './pages/OngoingPage';
+import AddTaskPage from './pages/AddTaskPage';
 
 function App() {
-  // Langsung tampilkan halaman tugas tanpa logika login
-  return <TaskPage />;
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Semua rute di dalam sini akan menggunakan AppLayout sebagai "bungkus" */}
+        <Route element={<AppLayout />}>
+          <Route index element={<Navigate replace to="dashboard" />} />
+          <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="ongoing" element={<OngoingPage />} />
+          {/* Rute untuk "Done", "Summary", "Log" bisa ditambahkan di sini */}
+              <Route path="add-task" element={<AddTaskPage />} /> 
+
+        </Route>
+      </Routes>
+    </BrowserRouter>
+  );
 }
 
 export default App;

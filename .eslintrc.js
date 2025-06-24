@@ -24,7 +24,9 @@ module.exports = {
     'plugin:react/jsx-runtime',
     'plugin:react-hooks/recommended',
   ],
-  rules: {},
+  rules: {
+    'react/prop-types': 'off', // <-- ATURAN BARU DITAMBAHKAN DI SINI
+  },
   globals: {
     Edit: 'writable',
     console: 'writable',

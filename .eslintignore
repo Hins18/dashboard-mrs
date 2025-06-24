@@ -1,8 +1,8 @@
 /node_modules
 /scripts
 /config
-/pnpm-lock.yaml
-/pnpm-workspace.yaml
+/npm-lock.yaml
+/npm-workspace.yaml
 .DS_Store
 
 /package.json

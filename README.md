@@ -29,7 +29,7 @@ A starter [Vite](https://vitejs.dev/) template having:
 
 ## Install
 
-> This project uses [pnpm](https://pnpm.io/) as its package manager. Go check it out if you don't have it locally installed. If you use other package managers like *Yarn* or *npm*, you may need to change some scripts in `tauri.conf.json` and `package.json`.
+> This project uses [npm](https://npm.io/) as its package manager. Go check it out if you don't have it locally installed. If you use other package managers like *Yarn* or *npm*, you may need to change some scripts in `tauri.conf.json` and `package.json`.
 
 Then you need a copy of this repository. You can [download](https://github.com/RoyRao2333/template-tauri-vite-react-ts-tailwind/archive/refs/heads/main.zip) a copy as zip but [tiged](https://github.com/tiged/tiged) is recommended.
 
@@ -44,7 +44,7 @@ After getting a copy of this repository, you can use your package manager to ins
 
 ```sh
 $ cd path-to-your-project
-$ pnpm install
+$ npm install
 ```
 
 ## Usage
@@ -52,7 +52,7 @@ $ pnpm install
 Let's run!
 
 ```sh
-$ pnpm tauri dev
+$ npm tauri dev
 ```
 
 > We've already implemented some recommended configurations in ```.eslintrc.js```, ```.eslintignore```, ```.prettierrc.json5``` and ```.prettierignore```. Feel free to edit them if you have your own preferences.
