@@ -6,6 +6,7 @@ import OngoingPage from './pages/OngoingPage';
 import DonePage from './pages/DonePage';
 import AddTaskPage from './pages/AddTaskPage';
 import AddDoneTaskPage from './pages/AddDoneTaskPage';
+import EditTaskPage from './pages/EditTaskPage';
 
 function App() {
   return (
@@ -19,7 +20,8 @@ function App() {
           <Route path="ongoing" element={<OngoingPage />} />
           {/* Rute untuk "Done", "Summary", "Log" bisa ditambahkan di sini */}
               <Route path="add-task" element={<AddTaskPage />} />
-<Route path="add-done-task" element={<AddDoneTaskPage />} />
+              <Route path="add-done-task" element={<AddDoneTaskPage />} />
+              <Route path="edit-task/:taskId" element={<EditTaskPage />} />
 
         </Route>
       </Routes>
