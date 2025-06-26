@@ -3,7 +3,9 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import AppLayout from './components/AppLayout'; // <-- Import layout baru
 import DashboardPage from './pages/DashboardPage';
 import OngoingPage from './pages/OngoingPage';
+import DonePage from './pages/DonePage';
 import AddTaskPage from './pages/AddTaskPage';
+import AddDoneTaskPage from './pages/AddDoneTaskPage';
 
 function App() {
   return (
@@ -13,9 +15,11 @@ function App() {
         <Route element={<AppLayout />}>
           <Route index element={<Navigate replace to="dashboard" />} />
           <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="done" element={<DonePage />} />
           <Route path="ongoing" element={<OngoingPage />} />
           {/* Rute untuk "Done", "Summary", "Log" bisa ditambahkan di sini */}
-              <Route path="add-task" element={<AddTaskPage />} /> 
+              <Route path="add-task" element={<AddTaskPage />} />
+<Route path="add-done-task" element={<AddDoneTaskPage />} />
 
         </Route>
       </Routes>

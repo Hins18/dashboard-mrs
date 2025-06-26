@@ -1,21 +1,23 @@
-// src/pages/AddTaskPage.tsx
+// src/pages/AddDoneTaskPage.tsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { Button } from '@/components/ui/button';
 
-export default function AddTaskPage() {
+export default function AddDoneTaskPage() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     judul: '',
-    ams_date: '',
-    progress_percentage: 0,
-    inisiator: '',
+    id_risk: 0,
+    rmp: 0,
+    tanggal_terbit: '',
     durasi: 0,
     no_nd: '',
+    inisiator: '',
     pic: '',
     assigned_by: '',
     remarks: '',
+    progress_percentage: 100, // Default progress 100% untuk tugas "Done"
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -36,15 +38,17 @@ export default function AddTaskPage() {
       .from('tasks_master')
       .insert({
         judul: formData.judul,
-        ams_date: formData.ams_date || null,
-        progress_percentage: Number(formData.progress_percentage) || 0,
+        id_risk: Number(formData.id_risk) || null,
+        rmp: Number(formData.rmp) || null,
+        tanggal_terbit: formData.tanggal_terbit || null,
+        durasi: Number(formData.durasi) || null,
+        no_nd: formData.no_nd,
         inisiator: formData.inisiator,
-        durasi: Number(formData.durasi) || 0,
         pic: formData.pic,
         assigned_by: formData.assigned_by,
         remarks: formData.remarks,
-        no_nd: formData.no_nd, // Memastikan semua field terkirim
-        is_completed: false, 
+        progress_percentage: Number(formData.progress_percentage) || 100,
+        is_completed: true, // Menyimpan tugas sebagai 'Done'
       });
 
     if (error) {
@@ -52,7 +56,7 @@ export default function AddTaskPage() {
       alert('Gagal menyimpan data!');
     } else {
       alert('Data berhasil ditambahkan!');
-      navigate('/ongoing'); 
+      navigate('/done'); // Kembali ke halaman 'Done'
     }
     setIsSubmitting(false);
   };
@@ -62,26 +66,39 @@ export default function AddTaskPage() {
       <div className="flex items-center mb-8">
         <Button variant="outline" className="bg-blue-500 text-white hover:bg-blue-600 hover:text-white" onClick={() => navigate(-1)}>Kembali</Button>
       </div>
-      <h1 className="text-2xl font-bold text-gray-800 mb-6 ml-1">KR ONGOING - TAMBAH DATA</h1>
+      <h1 className="text-2xl font-bold text-gray-800 mb-6 ml-1">KR DONE - TAMBAH DATA</h1>
       
+      {/* FORM LENGKAP DIMULAI DARI SINI */}
       <form onSubmit={handleSubmit} className="max-w-2xl space-y-4">
         
         <div className="grid grid-cols-3 items-center gap-4">
-          <label htmlFor="judul" className="text-right font-semibold text-gray-700">GRC ON PROGRESS</label>
+          <label htmlFor="judul" className="text-right font-semibold text-gray-700">JUDUL</label>
           <input type="text" id="judul" name="judul" value={formData.judul} onChange={handleChange} className="col-span-2 border p-2 rounded-md" required />
         </div>
 
         <div className="grid grid-cols-3 items-center gap-4">
-          <label htmlFor="ams_date" className="text-right font-semibold text-gray-700">AMS</label>
-          <input type="date" id="ams_date" name="ams_date" value={formData.ams_date} onChange={handleChange} className="col-span-2 border p-2 rounded-md" />
+          <label htmlFor="id_risk" className="text-right font-semibold text-gray-700">ID RISK</label>
+          <input type="number" id="id_risk" name="id_risk" value={formData.id_risk} onChange={handleChange} className="col-span-2 border p-2 rounded-md" />
         </div>
 
         <div className="grid grid-cols-3 items-center gap-4">
-          <label htmlFor="progress_percentage" className="text-right font-semibold text-gray-700">Data Complete</label>
-          <div className="col-span-2 flex items-center">
-            <input type="number" id="progress_percentage" name="progress_percentage" value={formData.progress_percentage} onChange={handleChange} className="w-24 border p-2 rounded-md" />
-            <span className="ml-2 font-semibold text-gray-600">%</span>
-          </div>
+          <label htmlFor="rmp" className="text-right font-semibold text-gray-700">RMP</label>
+          <input type="number" id="rmp" name="rmp" value={formData.rmp} onChange={handleChange} className="col-span-2 border p-2 rounded-md" />
+        </div>
+
+        <div className="grid grid-cols-3 items-center gap-4">
+          <label htmlFor="tanggal_terbit" className="text-right font-semibold text-gray-700">TANGGAL TERBIT</label>
+          <input type="date" id="tanggal_terbit" name="tanggal_terbit" value={formData.tanggal_terbit} onChange={handleChange} className="col-span-2 border p-2 rounded-md" />
+        </div>
+
+        <div className="grid grid-cols-3 items-center gap-4">
+          <label htmlFor="durasi" className="text-right font-semibold text-gray-700">DURASI</label>
+          <input type="number" id="durasi" name="durasi" value={formData.durasi} onChange={handleChange} className="col-span-2 border p-2 rounded-md w-24" />
+        </div>
+
+        <div className="grid grid-cols-3 items-center gap-4">
+          <label htmlFor="no_nd" className="text-right font-semibold text-gray-700">NO ND</label>
+          <input type="text" id="no_nd" name="no_nd" value={formData.no_nd} onChange={handleChange} className="col-span-2 border p-2 rounded-md" />
         </div>
 
         <div className="grid grid-cols-3 items-center gap-4">
@@ -89,13 +106,6 @@ export default function AddTaskPage() {
           <input type="text" id="inisiator" name="inisiator" value={formData.inisiator} onChange={handleChange} className="col-span-2 border p-2 rounded-md" />
         </div>
 
-        {/* Input untuk '%' sudah dihapus */}
-
-        <div className="grid grid-cols-3 items-center gap-4">
-          <label htmlFor="durasi" className="text-right font-semibold text-gray-700">DURATION</label>
-          <input type="number" id="durasi" name="durasi" value={formData.durasi} onChange={handleChange} className="col-span-2 border p-2 rounded-md w-24" />
-        </div>
-        
         <div className="grid grid-cols-3 items-center gap-4">
           <label htmlFor="pic" className="text-right font-semibold text-gray-700">PIC</label>
           <select id="pic" name="pic" value={formData.pic} onChange={handleChange} className="col-span-2 border p-2 rounded-md bg-white">
@@ -107,14 +117,9 @@ export default function AddTaskPage() {
           </select>
         </div>
 
-        <div className="grid grid-cols-3 items-center gap-4">
-          <label htmlFor="assigned_by" className="text-right font-semibold text-gray-700">Assigned by</label>
-          <select id="assigned_by" name="assigned_by" value={formData.assigned_by} onChange={handleChange} className="col-span-2 border p-2 rounded-md bg-white">
-            <option value="">Pilih Pemberi Tugas</option>
-            <option value="Manager A">Manager A</option>
-            <option value="Manager B">Manager B</option>
-            <option value="Manager C">Manager C</option>
-          </select>
+         <div className="grid grid-cols-3 items-start gap-4">
+          <label htmlFor="remarks" className="text-right font-semibold text-gray-700 pt-2">REMARKS</label>
+          <textarea id="remarks" name="remarks" value={formData.remarks} onChange={handleChange} className="col-span-2 border p-2 rounded-md" rows={4} />
         </div>
         
         <div className="flex justify-end pt-4">
