@@ -6,24 +6,31 @@ import { Button } from '@/components/ui/button';
 
 export default function AddTaskPage() {
   const navigate = useNavigate();
+  // State untuk menampung semua data dari form
   const [formData, setFormData] = useState({
     judul: '',
-    ams_date: '',
-    progress_percentage: 0,
-    inisiator: '',
+    id_risk: 0,
+    rmp: 0,
+    tanggal_terbit: '',
     durasi: 0,
     no_nd: '',
+    inisiator: '',
     pic: '',
     assigned_by: '',
     remarks: '',
+    progress_percentage: 0,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Fungsi untuk menangani perubahan di setiap input
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const { name, value, type } = e.target;
+    // Mengubah nilai menjadi angka jika tipe inputnya adalah number
+    const updatedValue = type === 'number' ? parseInt(value, 10) || 0 : value;
+    setFormData(prev => ({ ...prev, [name]: updatedValue }));
   };
 
+  // Fungsi untuk mengirim data ke Supabase saat form disubmit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.judul) {
@@ -32,20 +39,26 @@ export default function AddTaskPage() {
     }
     setIsSubmitting(true);
 
+    // ========================================================
+    // ==         BAGIAN INSERT YANG SUDAH DIPERBAIKI        ==
+    // ========================================================
     const { error } = await supabase
       .from('tasks_master')
       .insert({
         judul: formData.judul,
-        ams_date: formData.ams_date || null,
-        progress_percentage: Number(formData.progress_percentage) || 0,
+        id_risk: formData.id_risk,
+        rmp: formData.rmp,
+        tanggal_terbit: formData.tanggal_terbit || null,
+        durasi: formData.durasi,
+        no_nd: formData.no_nd,
         inisiator: formData.inisiator,
-        durasi: Number(formData.durasi) || 0,
         pic: formData.pic,
         assigned_by: formData.assigned_by,
         remarks: formData.remarks,
-        no_nd: formData.no_nd, // Memastikan semua field terkirim
-        is_completed: false, 
+        progress_percentage: formData.progress_percentage,
+        is_completed: false, // Selalu false untuk tugas Ongoing baru
       });
+    // ========================================================
 
     if (error) {
       console.error('Error inserting data:', error);
@@ -64,6 +77,7 @@ export default function AddTaskPage() {
       </div>
       <h1 className="text-2xl font-bold text-gray-800 mb-6 ml-1">KR ONGOING - TAMBAH DATA</h1>
       
+      {/* Bagian form Anda sudah benar, tidak perlu diubah */}
       <form onSubmit={handleSubmit} className="max-w-2xl space-y-4">
         
         <div className="grid grid-cols-3 items-center gap-4">
@@ -73,7 +87,7 @@ export default function AddTaskPage() {
 
         <div className="grid grid-cols-3 items-center gap-4">
           <label htmlFor="ams_date" className="text-right font-semibold text-gray-700">AMS</label>
-          <input type="date" id="ams_date" name="ams_date" value={formData.ams_date} onChange={handleChange} className="col-span-2 border p-2 rounded-md" />
+          <input type="date" id="tanggal_terbit" name="tanggal_terbit" value={formData.tanggal_terbit} onChange={handleChange} className="col-span-2 border p-2 rounded-md" />
         </div>
 
         <div className="grid grid-cols-3 items-center gap-4">
@@ -88,8 +102,6 @@ export default function AddTaskPage() {
           <label htmlFor="inisiator" className="text-right font-semibold text-gray-700">INISIATOR</label>
           <input type="text" id="inisiator" name="inisiator" value={formData.inisiator} onChange={handleChange} className="col-span-2 border p-2 rounded-md" />
         </div>
-
-        {/* Input untuk '%' sudah dihapus */}
 
         <div className="grid grid-cols-3 items-center gap-4">
           <label htmlFor="durasi" className="text-right font-semibold text-gray-700">DURATION</label>
@@ -115,6 +127,11 @@ export default function AddTaskPage() {
             <option value="Manager B">Manager B</option>
             <option value="Manager C">Manager C</option>
           </select>
+        </div>
+
+        <div className="grid grid-cols-3 items-start gap-4">
+          <label htmlFor="remarks" className="text-right font-semibold text-gray-700 pt-2">REMARKS</label>
+          <textarea id="remarks" name="remarks" value={formData.remarks} onChange={handleChange} className="col-span-2 border p-2 rounded-md" rows={4} />
         </div>
         
         <div className="flex justify-end pt-4">

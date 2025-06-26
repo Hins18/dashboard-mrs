@@ -28,7 +28,6 @@ export default function Sidebar() {
         <NavItem icon={LayoutDashboard} label="Dashboard" to="/dashboard" />
         <NavItem icon={Clock} label="Ongoing" to="/ongoing" />
         <NavItem icon={CheckCircle} label="Done" to="/done" />
-        <NavItem icon={BarChart} label="Summary" to="/summary" />
         <NavItem icon={FileText} label="Log" to="/log" /> {/* Menambahkan menu Log dari desain */}
       </nav>
     </aside>
