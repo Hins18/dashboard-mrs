@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 
 export default function AddDoneTaskPage() {
   const navigate = useNavigate();
-  // State lengkap untuk semua kolom di database
+  
+  // 1. State 'pic' diubah menjadi 'pics' (array)
   const [formData, setFormData] = useState({
     judul: '',
     id_risk: 0,
@@ -15,20 +16,37 @@ export default function AddDoneTaskPage() {
     durasi: 0,
     no_nd: '',
     inisiator: '',
-    pic: '',
-    assigned_by: '',
-    progress_percentage: 100, // Default 100% karena ini untuk tugas "Done"
+    pics: [''], // <-- Diubah menjadi array
+    assigned_by: '', // 'assigned_by' ditambahkan untuk konsistensi
+    progress_percentage: 100,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fungsi untuk menangani perubahan di setiap input
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     const updatedValue = type === 'number' ? parseInt(value, 10) || 0 : value;
     setFormData(prev => ({ ...prev, [name]: updatedValue }));
   };
 
-  // Fungsi untuk mengirim data ke Supabase
+  // --- FUNGSI BARU UNTUK MENGELOLA PIC DINAMIS ---
+  const handlePicChange = (index: number, value: string) => {
+    const newPics = [...formData.pics];
+    newPics[index] = value;
+    setFormData(prev => ({ ...prev, pics: newPics }));
+  };
+
+  const addPicInput = () => {
+    setFormData(prev => ({ ...prev, pics: [...prev.pics, ''] }));
+  };
+
+  const removePicInput = (index: number) => {
+    if (formData.pics.length > 1) {
+      const newPics = formData.pics.filter((_, i) => i !== index);
+      setFormData(prev => ({ ...prev, pics: newPics }));
+    }
+  };
+  // --- AKHIR FUNGSI PIC ---
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.judul) {
@@ -36,6 +54,9 @@ export default function AddDoneTaskPage() {
       return;
     }
     setIsSubmitting(true);
+
+    // 2. Gabungkan kembali array PIC menjadi satu string
+    const picValue = formData.pics.filter(Boolean).join(', ');
 
     const { error } = await supabase
       .from('tasks_master')
@@ -47,10 +68,10 @@ export default function AddDoneTaskPage() {
         durasi: formData.durasi,
         no_nd: formData.no_nd,
         inisiator: formData.inisiator,
-        pic: formData.pic,
+        pic: picValue, // <-- Kirim string PIC yang sudah digabung
         assigned_by: formData.assigned_by,
         progress_percentage: formData.progress_percentage,
-        is_completed: true, // <-- Penting: Menyimpan tugas sebagai 'Done'
+        is_completed: true,
       });
 
     if (error) {
@@ -58,7 +79,7 @@ export default function AddDoneTaskPage() {
       alert('Gagal menyimpan data!');
     } else {
       alert('Data berhasil ditambahkan!');
-      navigate('/done'); // <-- Penting: Kembali ke halaman 'Done'
+      navigate('/done');
     }
     setIsSubmitting(false);
   };
@@ -70,7 +91,6 @@ export default function AddDoneTaskPage() {
       </div>
       <h1 className="text-2xl font-bold text-gray-800 mb-6 ml-1">KR DONE - TAMBAH DATA</h1>
       
-      {/* FORM LENGKAP UNTUK SEMUA KOLOM */}
       <form onSubmit={handleSubmit} className="max-w-2xl space-y-4">
         
         <div className="grid grid-cols-3 items-center gap-4">
@@ -80,12 +100,12 @@ export default function AddDoneTaskPage() {
 
         <div className="grid grid-cols-3 items-center gap-4">
           <label htmlFor="id_risk" className="text-right font-semibold text-gray-700">ID RISK</label>
-          <input type="number" id="id_risk" name="id_risk" value={formData.id_risk} onChange={handleChange} className="col-span-2 border p-2 rounded-md" />
+          <input type="number" id="id_risk" name="id_risk" value={formData.id_risk || ''} onChange={handleChange} className="col-span-2 border p-2 rounded-md" />
         </div>
 
         <div className="grid grid-cols-3 items-center gap-4">
           <label htmlFor="rmp" className="text-right font-semibold text-gray-700">RMP</label>
-          <input type="number" id="rmp" name="rmp" value={formData.rmp} onChange={handleChange} className="col-span-2 border p-2 rounded-md" />
+          <input type="number" id="rmp" name="rmp" value={formData.rmp || ''} onChange={handleChange} className="col-span-2 border p-2 rounded-md" />
         </div>
 
         <div className="grid grid-cols-3 items-center gap-4">
@@ -95,7 +115,7 @@ export default function AddDoneTaskPage() {
 
         <div className="grid grid-cols-3 items-center gap-4">
           <label htmlFor="durasi" className="text-right font-semibold text-gray-700">DURASI</label>
-          <input type="number" id="durasi" name="durasi" value={formData.durasi} onChange={handleChange} className="col-span-2 border p-2 rounded-md w-24" />
+          <input type="number" id="durasi" name="durasi" value={formData.durasi || ''} onChange={handleChange} className="col-span-2 border p-2 rounded-md w-24" />
         </div>
 
         <div className="grid grid-cols-3 items-center gap-4">
@@ -108,16 +128,32 @@ export default function AddDoneTaskPage() {
           <input type="text" id="inisiator" name="inisiator" value={formData.inisiator} onChange={handleChange} className="col-span-2 border p-2 rounded-md" />
         </div>
 
-        <div className="grid grid-cols-3 items-center gap-4">
-          <label htmlFor="pic" className="text-right font-semibold text-gray-700">PIC</label>
-          <select id="pic" name="pic" value={formData.pic} onChange={handleChange} className="col-span-2 border p-2 rounded-md bg-white">
-            <option value="">Pilih PIC</option>
-            <option value="Fernando">Fernando</option>
-            <option value="Andini">Andini</option>
-            <option value="Budi">Budi</option>
-            <option value="Citra">Citra</option>
-          </select>
-        </div>
+        {/* --- BAGIAN PIC DINAMIS DITERAPKAN DI SINI --- */}
+        {formData.pics.map((pic, index) => (
+          <div key={index} className="grid grid-cols-3 items-center gap-4">
+            <label htmlFor={`pic-${index}`} className="text-right font-semibold text-gray-700">{`PIC ${index + 1}`}</label>
+            <div className="col-span-2 flex items-center gap-2">
+              <select id={`pic-${index}`} value={pic} onChange={(e) => handlePicChange(index, e.target.value)} className="flex-grow border p-2 rounded-md bg-white">
+                <option value="">Pilih PIC</option>
+                <option value="Fernando">Fernando</option>
+                <option value="Andini">Andini</option>
+                <option value="Budi">Budi</option>
+                <option value="Citra">Citra</option>
+                <option value="Fachri">Fachri</option>
+                <option value="Alif">Alif</option>
+              </select>
+              {formData.pics.length > 1 && (
+                <Button type="button" onClick={() => removePicInput(index)} className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 font-bold">-</Button>
+              )}
+            </div>
+          </div>
+        ))}
+        
+        <div className="grid grid-cols-3"><div className="col-start-2 col-span-2">
+          <Button type="button" onClick={addPicInput} className="bg-blue-500 hover:bg-blue-600 text-white">+ Tambah PIC</Button>
+        </div></div>
+        {/* --- AKHIR BAGIAN PIC DINAMIS --- */}
+
         
         <div className="flex justify-end pt-4">
           <Button type="submit" className="bg-green-500 hover:bg-green-600 text-white w-40" disabled={isSubmitting}>

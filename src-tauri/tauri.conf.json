@@ -56,10 +56,10 @@
     "windows": [
       {
         "fullscreen": false,
-        "height": 600,
+        "height": 1500,
         "resizable": true,
-        "title": "Tauri Vite",
-        "width": 800
+        "title": "Dashboard",
+        "width": 1500
       }
     ]
   }
