@@ -1,81 +1,246 @@
 // src/pages/OngoingPage.tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Plus, ArrowUpDown, FilePenLine, Trash2 } from 'lucide-react';
+import { Plus, ArrowUpDown, FilePenLine, Trash2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import type { Database } from '../database.types';
+import { eachDayOfInterval, isSameDay, isWeekend, addDays, startOfDay } from 'date-fns';
 
 type Task = Database['public']['Tables']['tasks_master']['Row'];
 
 export default function OngoingPage() {
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [rawTasks, setRawTasks] = useState<Task[]>([]);
+  const [holidays, setHolidays] = useState<Date[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalTasks, setTotalTasks] = useState(0);
-  const [sort, setSort] = useState({ column: 'created_at', ascending: false });
+
+  // *** DIADOPSI DARI OngoingPage (2).tsx: Default urutan diubah ke tanggal dibuat (terbaru) ***
+  const [sort, setSort] = useState({ column: 'created_at' as keyof Task | 'durasi', ascending: false });
   
+  const [mockToday, setMockToday] = useState<Date | null>(null);
+  const [highlightedRow, setHighlightedRow] = useState<number | null>(null);
+
   const itemsPerPage = 5;
   const navigate = useNavigate();
-  const from = (currentPage - 1) * itemsPerPage;
+  const location = useLocation();
+  const rowRefs = useRef<Map<number, HTMLTableRowElement>>(new Map());
 
-  // Logika fetch data yang sudah kita perbaiki
-  useEffect(() => {
-    fetchOngoingTasks();
-  }, [currentPage, sort]);
-
-  async function fetchOngoingTasks() {
-    setLoading(true);
-    const to = from + itemsPerPage - 1;
-
-    const { data, error, count } = await supabase
-      .from('tasks_master')
-      .select('*', { count: 'exact' })
-      .eq('is_completed', false)
-      .order(sort.column, { ascending: sort.ascending }) 
-      .range(from, to);
-
-    if (error) {
-      console.error('Error fetching ongoing tasks:', error);
-      setTasks([]); // Set tasks menjadi array kosong jika ada error
-    } else {
-      setTasks(data || []); // Jika data null, set menjadi array kosong
-      setTotalTasks(count || 0);
+  const calculateDeadline = useCallback((startDate: Date, workdays: number): Date => {
+    let deadline = new Date(startDate);
+    deadline.setHours(0, 0, 0, 0);
+    if (workdays <= 0) return deadline;
+    let daysCounted = 0;
+    while (daysCounted < workdays) {
+      const isPublicHoliday = holidays.some(h => isSameDay(h, deadline));
+      if (!isWeekend(deadline) && !isPublicHoliday) {
+        daysCounted++;
+      }
+      if (daysCounted < workdays) {
+        deadline = addDays(deadline, 1);
+      }
     }
-    setLoading(false);
-  }
+    return deadline;
+  }, [holidays]);
 
-  const totalPages = Math.ceil(totalTasks / itemsPerPage);
+  const calculateWorkingDaysBetween = useCallback((start: Date, end: Date): number => {
+    if (start > end) return 0;
+    let count = 0;
+    eachDayOfInterval({ start, end }).forEach(day => {
+        const isPublicHoliday = holidays.some(h => isSameDay(h, day));
+        if (!isWeekend(day) && !isPublicHoliday) count++;
+    });
+    return count;
+  }, [holidays]);
 
-  const handleDelete = async (taskId: number) => {
-    if (window.confirm("Yakin ingin menghapus?")) {
-      const { error } = await supabase.from('tasks_master').delete().eq('id', taskId);
+  const getCountdownValue = useCallback((task: Task): number => {
+    if (!task.tanggal_terbit || !task.durasi) return Infinity;
+    const startDate = startOfDay(new Date(task.tanggal_terbit));
+    const deadline = calculateDeadline(startDate, task.durasi);
+    const today = startOfDay(mockToday || new Date());
+    
+    if (isSameDay(today, deadline)) return 0;
+    if (today > deadline) {
+      return -Math.max(1, calculateWorkingDaysBetween(addDays(deadline, 1), today));
+    }
+    return calculateWorkingDaysBetween(addDays(today, 1), deadline);
+  }, [calculateDeadline, calculateWorkingDaysBetween, mockToday]);
+
+  const getCountdown = useCallback((task: Task): { text: string; colorClass: string } => {
+    // Fitur "Pause" dari OngoingPage.tsx asli dipertahankan
+    if (task.is_data_complete === false) {
+      return { text: 'Pause', colorClass: 'text-blue-500' };
+    }
+
+    const daysDiff = getCountdownValue(task);
+    if (daysDiff === Infinity) return { text: "-", colorClass: 'text-gray-700' };
+
+    let colorClass = 'text-gray-700';
+    if (daysDiff < 0) {
+      colorClass = 'text-red-800';
+      return { text: 'Lewat SLA', colorClass };
+    }
+    if (daysDiff === 0) {
+      colorClass = 'text-red-600';
+      return { text: 'Hari Ini', colorClass };
+    }
+    if (daysDiff <= 3) colorClass = 'text-red-600';
+    else if (daysDiff <= 6) colorClass = 'text-orange-500';
+    else if (daysDiff <= 9) colorClass = 'text-yellow-500';
+
+    return { text: `${daysDiff} hari lagi`, colorClass };
+  }, [getCountdownValue]);
+
+  useEffect(() => {
+    async function loadInitialData() {
+      setLoading(true);
+      try {
+        const year = new Date().getFullYear();
+        const response = await fetch(`https://api-harilibur.vercel.app/api?year=${year}`);
+        const holidayData: { holiday_date: string }[] = await response.json();
+        setHolidays(holidayData.map(h => startOfDay(new Date(h.holiday_date))));
+      } catch (error) {
+        console.error("Gagal mengambil hari libur:", error);
+      }
+      
+      const { data, error } = await supabase.from('tasks_master').select('*').eq('is_completed', false);
       if (error) {
-        alert('Gagal menghapus tugas.');
+        console.error('Error fetching ongoing tasks:', error);
       } else {
-        fetchOngoingTasks(); 
+        setRawTasks(data || []);
+      }
+      setLoading(false);
+    }
+    loadInitialData();
+  }, []);
+
+  const handleCompleteTask = async (taskId: number) => {
+    if (window.confirm("Apakah Anda yakin ingin menandai tugas ini sebagai selesai?")) {
+      const { error } = await supabase
+        .from('tasks_master')
+        .update({ is_completed: true, progress_percentage: 100 })
+        .eq('id', taskId);
+      if (error) {
+        alert('Gagal menyelesaikan tugas.');
+      } else {
+        setRawTasks(prev => prev.filter(task => task.id !== taskId));
       }
     }
   };
 
-  const handleSort = (columnName: string) => {
-    const newAscending = sort.column === columnName ? !sort.ascending : true;
-    setSort({ column: columnName, ascending: newAscending });
+  const handleDelete = async (taskId: number) => {
+    if (window.confirm("Yakin ingin menghapus tugas ini?")) {
+      await supabase.from('tasks_master').delete().eq('id', taskId);
+      setRawTasks(prev => prev.filter(task => task.id !== taskId));
+    }
+  };
+
+  const handleSort = (columnName: keyof Task | 'durasi') => {
+    setSort(prevSort => ({
+      column: columnName,
+      ascending: prevSort.column === columnName ? !prevSort.ascending : true,
+    }));
     setCurrentPage(1);
   };
 
-  // Tampilan lengkap dengan tabel yang benar
+  const sortedTasks = useMemo(() => {
+    if (!rawTasks) return [];
+    const tasksWithCountdown = rawTasks.map(task => ({
+        ...task,
+        countdownValue: getCountdownValue(task)
+    }));
+    
+    tasksWithCountdown.sort((a, b) => {
+        // *** DIADOPSI DARI OngoingPage (2).tsx: Logika sorting 'durasi' yang lebih canggih ***
+        if (sort.column === 'durasi') {
+            const aIsOverdue = a.countdownValue < 0;
+            const bIsOverdue = b.countdownValue < 0;
+
+            if (sort.ascending) {
+                // Jika a lewat SLA dan b tidak, letakkan a di bawah.
+                if (aIsOverdue && !bIsOverdue) return 1;
+                // Jika b lewat SLA dan a tidak, letakkan a di atas.
+                if (!aIsOverdue && bIsOverdue) return -1;
+                // Jika keduanya sama-sama lewat SLA atau tidak, urutkan berdasarkan nilainya.
+                return a.countdownValue - b.countdownValue;
+            } else { // descending
+                // Jika a lewat SLA dan b tidak, letakkan a di atas (prioritas).
+                if (aIsOverdue && !bIsOverdue) return 1;
+                // Jika b lewat SLA dan a tidak, letakkan b di atas.
+                if (!aIsOverdue && bIsOverdue) return -1;
+                // Jika keduanya sama-sama lewat SLA atau tidak, urutkan descending.
+                return b.countdownValue - a.countdownValue;
+            }
+        }
+        
+        const aValue = a[sort.column as keyof Task];
+        const bValue = b[sort.column as keyof Task];
+        if (aValue === null || aValue === undefined) return 1;
+        if (bValue === null || bValue === undefined) return -1;
+        if (aValue < bValue) return sort.ascending ? -1 : 1;
+        if (aValue > bValue) return sort.ascending ? 1 : -1;
+        return 0;
+    });
+    return tasksWithCountdown;
+  }, [rawTasks, sort, getCountdownValue]);
+
+  useEffect(() => {
+    const highlightedTaskId = location.state?.highlightedTaskId;
+    if (highlightedTaskId && sortedTasks.length > 0) {
+      const taskIndex = sortedTasks.findIndex(t => t.id === highlightedTaskId);
+      if (taskIndex !== -1) {
+        const targetPage = Math.floor(taskIndex / itemsPerPage) + 1;
+        setCurrentPage(targetPage);
+        setHighlightedRow(highlightedTaskId);
+
+        const rowElement = rowRefs.current.get(highlightedTaskId);
+        if (rowElement) {
+          setTimeout(() => {
+            rowElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 100);
+        }
+
+        const timer = setTimeout(() => {
+          setHighlightedRow(null);
+          navigate(location.pathname, { replace: true, state: {} });
+        }, 3000);
+
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [location.state, sortedTasks, navigate]);
+
+  const paginatedTasks = useMemo(() => {
+    const from = (currentPage - 1) * itemsPerPage;
+    return sortedTasks.slice(from, from + itemsPerPage);
+  }, [sortedTasks, currentPage]);
+
+  const totalPages = Math.ceil(rawTasks.length / itemsPerPage);
+  
+  const SortIndicator = ({ columnName }: { columnName: keyof Task | 'durasi' }) => {
+    if (sort.column !== columnName) return null;
+    return sort.ascending ? ' 🔼' : ' 🔽';
+  };
+  
   return (
     <div className="p-8 h-full overflow-y-auto">
       <h1 className="text-3xl font-bold text-gray-800 mb-2">KR Ongoing</h1>
       <div className="flex justify-between items-center mb-6">
         <Button className="bg-green-500 hover:bg-green-600" onClick={() => navigate('/add-task')}>
           <Plus size={18} className="mr-2" />
-          Tambah
+          Tambah Tugas
         </Button>
-        <Button variant="outline" className="text-gray-600" onClick={() => handleSort('durasi')}>
-          Sort By: Duration
-        </Button>
+      </div>
+
+      <div className="p-4 bg-yellow-100 border border-yellow-300 rounded-lg mb-6 text-sm">
+        <p className="font-bold mb-2">Panel Simulasi Waktu</p>
+        <div className="flex items-center gap-4">
+            <label htmlFor="mock-date">Simulasikan "Hari Ini" sebagai:</label>
+            <input type="date" id="mock-date" className="border p-1 rounded-md"
+              onChange={(e) => setMockToday(e.target.value ? startOfDay(new Date(e.target.value)) : null)}
+            />
+            <Button variant="ghost" size="sm" onClick={() => setMockToday(null)}>Reset</Button>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border overflow-x-auto">
@@ -83,49 +248,67 @@ export default function OngoingPage() {
           <thead className="text-xs text-gray-700 uppercase bg-gray-50">
             <tr>
               <th scope="col" className="px-4 py-3 w-16">No</th>
-              <th scope="col" className="px-6 py-3">GRC On-Progress</th>
-              <th scope="col" className="px-6 py-3 whitespace-nowrap">AMS</th>
-              <th scope="col" className="px-6 py-3 whitespace-nowrap">Data Completed (%)</th>
-              <th scope="col" className="px-6 py-3 whitespace-nowrap">Inisiator</th>
-              <th scope="col" className="px-6 py-3 w-24 text-center">Duration</th>
+              <th scope="col" className="px-6 py-3 cursor-pointer" onClick={() => handleSort('judul')}>GRC On-Progress<SortIndicator columnName="judul" /></th>
+              <th scope="col" className="px-6 py-3 cursor-pointer" onClick={() => handleSort('tanggal_terbit')}>AMS<SortIndicator columnName="tanggal_terbit" /></th>
+              <th scope="col" className="px-6 py-3 w-48 text-center cursor-pointer" onClick={() => handleSort('progress_percentage')}>Data Selesai (%)<SortIndicator columnName="progress_percentage" /></th>
+              <th scope="col" className="px-6 py-3 cursor-pointer" onClick={() => handleSort('inisiator')}>Inisiator<SortIndicator columnName="inisiator" /></th>
+              <th scope="col" className="px-6 py-3 w-40 text-center cursor-pointer" onClick={() => handleSort('durasi')}>Sisa Waktu<SortIndicator columnName="durasi" /></th>
               <th scope="col" className="px-6 py-3">Remarks</th>
-              <th scope="col" className="px-6 py-3 whitespace-nowrap">PIC</th>
-              <th scope="col" className="px-6 py-3 whitespace-nowrap">Assigned by</th>
-              <th scope="col" className="px-6 py-3 text-center w-28">Aksi</th>
+              <th scope="col" className="px-6 py-3 cursor-pointer" onClick={() => handleSort('pic')}>PIC<SortIndicator columnName="pic" /></th>
+              <th scope="col" className="px-6 py-3 text-center w-36">Aksi</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={10} className="text-center p-4">Loading...</td></tr>
+              <tr><td colSpan={9} className="text-center p-4">Memuat...</td></tr>
+            ) : paginatedTasks.length === 0 ? (
+              <tr><td colSpan={9} className="text-center p-4">Tidak ada tugas yang sedang berjalan.</td></tr>
             ) : (
-              tasks.map((task, index) => (
-                <tr key={task.id} className="bg-white border-b hover:bg-gray-50">
-                  <td className="px-4 py-4 text-center font-medium">{from + index + 1}</td>
-                  <td className="px-6 py-4 font-semibold text-gray-900 min-w-[250px] break-words">{task.judul}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{task.tanggal_terbit ? new Date(task.tanggal_terbit).toLocaleDateString('en-GB') : '-'}</td>
-                  <td className="px-6 py-4 text-center whitespace-nowrap">{task.progress_percentage}%</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{task.inisiator}</td>
-                  <td className="px-6 py-4 text-center whitespace-nowrap">{task.durasi}</td>
-                  <td className="px-6 py-4 min-w-[300px] break-words">{task.remarks}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{task.pic}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{task.assigned_by}</td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="flex justify-center space-x-2">
-                      <Button variant="outline" size="sm" onClick={() => navigate(`/edit-ongoing/${task.id}`)}><FilePenLine size={16} /></Button>
-                      <Button variant="destructive" size="sm" onClick={() => handleDelete(task.id)}><Trash2 size={16} /></Button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+              paginatedTasks.map((task, index) => {
+                const countdown = getCountdown(task);
+                return (
+                  <tr 
+                    ref={node => {
+                      if (node) rowRefs.current.set(task.id, node);
+                      else rowRefs.current.delete(task.id);
+                    }}
+                    key={task.id} 
+                    className={`border-b hover:bg-gray-50 transition-colors duration-500 ${task.id === highlightedRow ? 'bg-blue-100' : 'bg-white'}`}
+                  >
+                    <td className="px-4 py-4 text-center font-medium">{(currentPage - 1) * itemsPerPage + index + 1}</td>
+                    <td className="px-6 py-4 font-semibold text-gray-900">{task.judul}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">{task.tanggal_terbit ? new Date(task.tanggal_terbit).toLocaleDateString('en-GB') : '-'}</td>
+                    <td className="px-6 py-4 text-center whitespace-nowrap">{task.progress_percentage}%</td>
+                    <td className="px-6 py-4 whitespace-nowrap">{task.inisiator}</td>
+                    <td className={`px-6 py-4 text-center whitespace-nowrap font-semibold ${countdown.colorClass}`}>
+                      {countdown.text}
+                    </td>
+                    <td className="px-6 py-4">{task.remarks}</td>
+                    <td className="px-6 py-4">{task.pic}</td>
+                    <td className="px-6 py-4 text-center">
+                      <div className="flex justify-center space-x-2">
+                        <Button className="bg-blue-500 hover:bg-blue-600 text-white" size="sm" onClick={() => navigate(`/edit-ongoing/${task.id}`)}>
+                          <FilePenLine size={16} />
+                        </Button>
+                        <Button variant="destructive" size="sm" onClick={() => handleDelete(task.id)}>
+                          <Trash2 size={16} />
+                        </Button>
+                        <Button className="bg-green-500 hover:bg-green-600 text-white px-3 text-xs" size="sm" onClick={() => handleCompleteTask(task.id)}>
+                          Done
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })
             )}
           </tbody>
         </table>
       </div>
-
       <div className="flex justify-center items-center space-x-2 mt-6">
         <Button onClick={() => setCurrentPage(1)} disabled={currentPage === 1 || totalPages === 0} variant="outline" size="sm">&lt;&lt;</Button>
         <Button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1 || totalPages === 0} variant="outline" size="sm">&lt;</Button>
-        <span className="text-sm font-medium">Page {currentPage} of {totalPages || 1}</span>
+        <span className="text-sm font-medium">Halaman {currentPage} dari {totalPages || 1}</span>
         <Button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages || totalPages === 0} variant="outline" size="sm">&gt;</Button>
         <Button onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages || totalPages === 0} variant="outline" size="sm">&gt;&gt;</Button>
       </div>

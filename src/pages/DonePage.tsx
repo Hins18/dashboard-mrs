@@ -63,6 +63,10 @@ export default function DonePage() {
     }
   };
 
+  const SortIndicator = ({ columnName }: { columnName: string }) => {
+    if (sort.column !== columnName) return null;
+    return sort.ascending ? ' 🔼' : ' 🔽';
+  };
   return (
     <div className="p-8 h-full overflow-y-auto">
       <h1 className="text-3xl font-bold text-gray-800 mb-2">KR Done</h1>
@@ -71,23 +75,32 @@ export default function DonePage() {
           <Plus size={18} className="mr-2" />
           Tambah
         </Button>
-        {/* 5. HUBUNGKAN TOMBOL DENGAN FUNGSI handleSort */}
-        <Button variant="outline" className="text-gray-600" onClick={() => handleSort('durasi')}>
-          Sort By: Durasi
-          <ArrowUpDown size={16} className="ml-2" />
-        </Button>
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border overflow-x-auto">
         <table className="w-full text-sm text-left text-gray-600">
           <thead className="text-xs text-gray-700 uppercase bg-gray-50">
             <tr>
-              <th scope="col" className="px-4 py-3 w-16">NO</th>
-              <th scope="col" className="px-6 py-3">JUDUL</th>
-              <th scope="col" className="px-6 py-3">ID RISK</th>
-              <th scope="col" className="px-6 py-3">RMP</th>
-              <th scope="col" className="px-6 py-3">TANGGAL TERBIT</th>
-              <th scope="col" className="px-6 py-3 w-24 text-center">DURASI</th>
+              <th scope="col" className="px-4 py-3 w-16 text-center">NO</th>
+              
+              {/* Kolom yang bisa di-sort dengan indikator baru */}
+              <th scope="col" className="px-6 py-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('judul')}>
+                JUDUL<SortIndicator columnName="judul" />
+              </th>
+              <th scope="col" className="px-6 py-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('id_risk')}>
+                ID RISK<SortIndicator columnName="id_risk" />
+              </th>
+              <th scope="col" className="px-6 py-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('rmp')}>
+                RMP<SortIndicator columnName="rmp" />
+              </th>
+              <th scope="col" className="px-6 py-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('tanggal_terbit')}>
+                TANGGAL TERBIT<SortIndicator columnName="tanggal_terbit" />
+              </th>
+              <th scope="col" className="px-6 py-3 cursor-pointer hover:bg-gray-100 text-center" onClick={() => handleSort('durasi')}>
+                DURASI<SortIndicator columnName="durasi" />
+              </th>
+
+              {/* Kolom yang tidak bisa di-sort */}
               <th scope="col" className="px-6 py-3">NO ND</th>
               <th scope="col" className="px-6 py-3">INISIATOR</th>
               <th scope="col" className="px-6 py-3">PIC</th>

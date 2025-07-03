@@ -29,4 +29,15 @@
   .dark {
     /* Variabel untuk dark mode jika nanti dibutuhkan */
   }
+
+  /* CSS BARU UNTUK GARIS BAWAH */
+.rbc-day-bg.red-day {
+  background-color: transparent !important; /* Hapus latar belakang */
+}
+
+.rbc-day-bg.red-day + .rbc-row-content .rbc-date-cell .rbc-button {
+  border-bottom: 2px solid #ef4444; /* Garis bawah merah */
+  border-radius: 0; /* Opsional: hilangkan bentuk bulat agar garis lurus */
+  padding-bottom: 1px;
+}
 }

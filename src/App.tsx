@@ -8,7 +8,6 @@ import AddTaskPage from './pages/AddTaskPage';
 import EditOngoingTaskPage from './pages/EditOngoingTaskPage';
 import EditDoneTaskPage from './pages/EditDoneTaskPage';
 import AddDoneTaskPage from './pages/AddDoneTaskPage'; // <-- 1. IMPORT HALAMAN BARU
-import LogPage from './pages/LogPage';
 
 function App() {
   return (
@@ -23,7 +22,6 @@ function App() {
           <Route path="add-done-task" element={<AddDoneTaskPage />} /> {/* <-- 2. DAFTARKAN RUTE BARU DI SINI */}
           <Route path="edit-ongoing/:taskId" element={<EditOngoingTaskPage />} />
           <Route path="edit-done/:taskId" element={<EditDoneTaskPage />} />
-          <Route path="log" element={<LogPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
