@@ -1,217 +1,148 @@
-// src/pages/EditDoneTaskPage.tsx
+// src/pages/DonePage.tsx
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import { Plus, ArrowUpDown, FilePenLine, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
+import type { Database } from '../database.types';
 
-export default function EditDoneTaskPage() {
-  const navigate = useNavigate();
-  const { taskId } = useParams();
+type Task = Database['public']['Tables']['tasks_master']['Row'];
 
-  // State untuk form, dengan 'pics' sebagai array
-  const [formData, setFormData] = useState({
-    judul: '',
-    id_risk: 0,
-    rmp: 0,
-    tanggal_terbit: '',
-    durasi: 0,
-    no_nd: '',
-    inisiator: '',
-    pics: [''], // pic diubah menjadi pics (array)
-  });
-
-  // State untuk menyimpan tanggal pembaruan terakhir
-  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
-  
+export default function DonePage() {
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const navigate = useNavigate();
 
+  // 1. TAMBAHKAN STATE UNTUK PAGINASI DAN SORTING
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalTasks, setTotalTasks] = useState(0);
+  const [sort, setSort] = useState({ column: 'tanggal_terbit', ascending: false });
+  
+  const itemsPerPage = 5;
+  const from = (currentPage - 1) * itemsPerPage;
+
+  // 2. PERBARUI useEffect UNTUK MEMANTAU PERUBAHAN SORTING
   useEffect(() => {
-    async function fetchTaskData() {
-      if (!taskId) return;
-      setLoading(true);
-      const { data, error } = await supabase.from('tasks_master').select('*').eq('id', taskId).single();
-      if (error) {
-        alert('Gagal memuat data tugas.');
-        navigate(-1);
-      } else if (data) {
-        // Memecah string PIC dari database menjadi array
-        const picArray = data.pic ? data.pic.split(', ') : [''];
-        
-        // Mengisi state form dengan data dari database
-        setFormData({
-            judul: data.judul || '',
-            id_risk: data.id_risk || 0,
-            rmp: data.rmp || 0,
-            tanggal_terbit: data.tanggal_terbit || '',
-            durasi: data.durasi || 0,
-            no_nd: data.no_nd || '',
-            inisiator: data.inisiator || '',
-            pics: picArray, // Mengisi state 'pics' dengan array
-        });
+    fetchDoneTasks();
+  }, [currentPage, sort]);
 
-        // Mengatur state lastUpdated dari kolom 'updated_at'
-        if (data.updated_at) {
-          const date = new Date(data.updated_at);
-          const formattedDate = date.toLocaleDateString('id-ID', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-          });
-          setLastUpdated(formattedDate);
-        } else {
-          setLastUpdated(null);
-        }
-      }
-      setLoading(false);
-    }
-    fetchTaskData();
-  }, [taskId, navigate]);
+  // 3. PERBARUI FUNGSI FETCH DATA DENGAN LOGIKA SORTING & PAGINASI
+  async function fetchDoneTasks() {
+    setLoading(true);
+    const to = from + itemsPerPage - 1;
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target;
-    const updatedValue = type === 'number' ? parseInt(value, 10) || 0 : value;
-    setFormData(prev => ({ ...prev, [name]: updatedValue }));
-  };
-
-  // --- FUNGSI UNTUK MENGELOLA PIC DINAMIS ---
-  const handlePicChange = (index: number, value: string) => {
-    const newPics = [...formData.pics];
-    newPics[index] = value;
-    setFormData(prev => ({ ...prev, pics: newPics }));
-  };
-
-  const addPicInput = () => {
-    setFormData(prev => ({ ...prev, pics: [...prev.pics, ''] }));
-  };
-
-  const removePicInput = (index: number) => {
-    if (formData.pics.length > 1) {
-      const newPics = formData.pics.filter((_, i) => i !== index);
-      setFormData(prev => ({ ...prev, pics: newPics }));
-    }
-  };
-  // --- AKHIR FUNGSI PIC ---
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
-    // Menggabungkan array 'pics' menjadi satu string sebelum dikirim ke database
-    const picValue = formData.pics.filter(Boolean).join(', ');
-
-    const { error } = await supabase
+    const { data, error, count } = await supabase
       .from('tasks_master')
-      .update({
-        judul: formData.judul,
-        id_risk: formData.id_risk,
-        rmp: formData.rmp,
-        tanggal_terbit: formData.tanggal_terbit || null,
-        durasi: formData.durasi,
-        no_nd: formData.no_nd,
-        inisiator: formData.inisiator,
-        pic: picValue, // Menggunakan nilai string yang sudah digabung
-      })
-      .eq('id', taskId);
+      .select('*', { count: 'exact' })
+      .eq('is_completed', true)
+      .order(sort.column, { ascending: sort.ascending }) // <-- Order sekarang dinamis
+      .range(from, to);
 
     if (error) {
-      alert('Gagal menyimpan perubahan!');
+      console.error('Error fetching done tasks:', error);
     } else {
-      alert('Perubahan berhasil disimpan!');
-      navigate('/done');
+      if (data) setTasks(data);
+      if (count) setTotalTasks(count);
     }
-    setIsSubmitting(false);
-  };
-
-  if (loading) {
-    return <div className="p-8">Memuat data...</div>;
+    setLoading(false);
   }
 
+  const totalPages = Math.ceil(totalTasks / itemsPerPage);
+
+  // 4. TAMBAHKAN FUNGSI handleSort
+  const handleSort = (columnName: string) => {
+    const newAscending = sort.column === columnName ? !sort.ascending : true;
+    setSort({ column: columnName, ascending: newAscending });
+    setCurrentPage(1); // Kembali ke halaman 1 setiap kali sorting diubah
+  };
+
+  const handleDelete = async (taskId: number) => {
+    if (window.confirm("Yakin ingin menghapus tugas ini?")) {
+      await supabase.from('tasks_master').delete().eq('id', taskId);
+      fetchDoneTasks();
+    }
+  };
+
+  const SortIndicator = ({ columnName }: { columnName: string }) => {
+    if (sort.column !== columnName) return null;
+    return sort.ascending ? ' 🔼' : ' 🔽';
+  };
   return (
-    <div className="p-8">
-      <div className="flex items-center mb-8">
-        <Button variant="outline" className="bg-blue-500 text-white hover:bg-blue-600 hover:text-white" onClick={() => navigate(-1)}>Kembali</Button>
+    <div className="p-8 h-full overflow-y-auto">
+      <h1 className="text-3xl font-bold text-gray-800 mb-2">KR Done</h1>
+      <div className="flex justify-between items-center mb-6">
+        <Button className="bg-green-500 hover:bg-green-600" onClick={() => navigate('/add-done-task')}>
+          <Plus size={18} className="mr-2" />
+          Tambah
+        </Button>
       </div>
-      <h1 className="text-2xl font-bold text-gray-800 mb-6 ml-1">EDIT DATA DONE</h1>
 
-      <form onSubmit={handleSubmit} className="max-w-2xl space-y-4">
-        
-        <div className="grid grid-cols-3 items-center gap-4">
-          <label htmlFor="judul" className="text-right font-semibold text-gray-700">JUDUL</label>
-          <input type="text" id="judul" name="judul" value={formData.judul} onChange={handleChange} className="col-span-2 border p-2 rounded-md" required />
-        </div>
+      <div className="bg-white rounded-lg shadow-sm border overflow-x-auto">
+        <table className="w-full text-sm text-left text-gray-600">
+          <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+            <tr>
+              <th scope="col" className="px-4 py-3 w-16 text-center">NO</th>
+              
+              {/* Kolom yang bisa di-sort dengan indikator baru */}
+              <th scope="col" className="px-6 py-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('judul')}>
+                JUDUL<SortIndicator columnName="judul" />
+              </th>
+              <th scope="col" className="px-6 py-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('id_risk')}>
+                ID RISK<SortIndicator columnName="id_risk" />
+              </th>
+              <th scope="col" className="px-6 py-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('rmp')}>
+                RMP<SortIndicator columnName="rmp" />
+              </th>
+              <th scope="col" className="px-6 py-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('tanggal_terbit')}>
+                TANGGAL TERBIT<SortIndicator columnName="tanggal_terbit" />
+              </th>
+              <th scope="col" className="px-6 py-3 cursor-pointer hover:bg-gray-100 text-center" onClick={() => handleSort('durasi')}>
+                DURASI<SortIndicator columnName="durasi" />
+              </th>
 
-        <div className="grid grid-cols-3 items-center gap-4">
-          <label htmlFor="id_risk" className="text-right font-semibold text-gray-700">ID RISK</label>
-          <input type="number" id="id_risk" name="id_risk" value={formData.id_risk || ''} onChange={handleChange} className="col-span-2 border p-2 rounded-md" />
-        </div>
-
-        <div className="grid grid-cols-3 items-center gap-4">
-          <label htmlFor="rmp" className="text-right font-semibold text-gray-700">RMP</label>
-          <input type="number" id="rmp" name="rmp" value={formData.rmp || ''} onChange={handleChange} className="col-span-2 border p-2 rounded-md" />
-        </div>
-        
-        <div className="grid grid-cols-3 items-center gap-4">
-          <label htmlFor="tanggal_terbit" className="text-right font-semibold text-gray-700">TANGGAL TERBIT</label>
-          <input type="date" id="tanggal_terbit" name="tanggal_terbit" value={formData.tanggal_terbit} onChange={handleChange} className="col-span-2 border p-2 rounded-md" />
-        </div>
-
-        <div className="grid grid-cols-3 items-center gap-4">
-          <label htmlFor="durasi" className="text-right font-semibold text-gray-700">DURASI</label>
-          <input type="number" id="durasi" name="durasi" value={formData.durasi || ''} onChange={handleChange} className="col-span-2 border p-2 rounded-md w-24" />
-        </div>
-
-        <div className="grid grid-cols-3 items-center gap-4">
-          <label htmlFor="no_nd" className="text-right font-semibold text-gray-700">NO ND</label>
-          <input type="text" id="no_nd" name="no_nd" value={formData.no_nd} onChange={handleChange} className="col-span-2 border p-2 rounded-md" />
-        </div>
-
-        <div className="grid grid-cols-3 items-center gap-4">
-          <label htmlFor="inisiator" className="text-right font-semibold text-gray-700">INISIATOR</label>
-          <input type="text" id="inisiator" name="inisiator" value={formData.inisiator} onChange={handleChange} className="col-span-2 border p-2 rounded-md" />
-        </div>
-        
-        {/* --- BAGIAN PIC DINAMIS --- */}
-        {formData.pics.map((pic, index) => (
-          <div key={index} className="grid grid-cols-3 items-center gap-4">
-            <label htmlFor={`pic-${index}`} className="text-right font-semibold text-gray-700">{`PIC ${index + 1}`}</label>
-            <div className="col-span-2 flex items-center gap-2">
-              <select id={`pic-${index}`} value={pic} onChange={(e) => handlePicChange(index, e.target.value)} className="flex-grow border p-2 rounded-md bg-white">
-                <option value="">Pilih PIC</option>
-                <option value="Fernando">Fernando</option>
-                <option value="Andini">Andini</option>
-                <option value="Budi">Budi</option>
-                <option value="Citra">Citra</option>
-                <option value="Fachri">Fachri</option>
-                <option value="Alif">Alif</option>
-              </select>
-              {formData.pics.length > 1 && (
-                <Button type="button" onClick={() => removePicInput(index)} className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 font-bold">-</Button>
-              )}
-            </div>
-          </div>
-        ))}
-        <div className="grid grid-cols-3"><div className="col-start-2 col-span-2">
-          <Button type="button" onClick={addPicInput} className="bg-blue-500 hover:bg-blue-600 text-white">+ Tambah PIC</Button>
-        </div></div>
-        {/* --- AKHIR BAGIAN PIC DINAMIS --- */}
-        
-        <div className="flex justify-between items-center pt-4">
-          <div>
-            {lastUpdated && (
-              <p className="text-sm text-gray-500 italic">
-                Last Updated: {lastUpdated}
-              </p>
+              {/* Kolom yang tidak bisa di-sort */}
+              <th scope="col" className="px-6 py-3">NO ND</th>
+              <th scope="col" className="px-6 py-3">INISIATOR</th>
+              <th scope="col" className="px-6 py-3">PIC</th>
+              <th scope="col" className="px-6 py-3 text-center w-28">AKSI</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={10} className="text-center p-4">Loading...</td></tr>
+            ) : (
+              tasks.map((task, index) => (
+                <tr key={task.id} className="bg-white border-b hover:bg-gray-50">
+                  <td className="px-4 py-4 text-center">{from + index + 1}</td>
+                  <td className="px-6 py-4 font-semibold text-gray-900">{task.judul}</td>
+                  <td className="px-6 py-4 text-center">{task.id_risk}</td>
+                  <td className="px-6 py-4 text-center">{task.rmp}</td>
+                  <td className="px-6 py-4">{task.tanggal_terbit ? new Date(task.tanggal_terbit).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'}) : '-'}</td>
+                  <td className="px-6 py-4 text-center">{task.durasi}</td>
+                  <td className="px-6 py-4">{task.no_nd}</td>
+                  <td className="px-6 py-4">{task.inisiator}</td>
+                  <td className="px-6 py-4">{task.pic}</td>
+                  <td className="px-6 py-4 text-center">
+                    <div className="flex justify-center space-x-2">
+                      <Button variant="outline" className="bg-blue-500 hover:bg-blue-600 text-white" size="sm" onClick={() => navigate(`/edit-done/${task.id}`)}><FilePenLine size={16} /></Button>
+                      <Button variant="destructive" size="sm" onClick={() => handleDelete(task.id)}><Trash2 size={16} /></Button>
+                    </div>
+                  </td>
+                </tr>
+              ))
             )}
-          </div>
-          
-          <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white w-48" disabled={isSubmitting}>
-            {isSubmitting ? 'Menyimpan...' : 'SIMPAN PERUBAHAN'}
-          </Button>
-        </div>
-      </form>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Menambahkan kembali Paginasi */}
+      <div className="flex justify-center items-center space-x-2 mt-6">
+        <Button onClick={() => setCurrentPage(1)} disabled={currentPage === 1 || totalPages === 0} variant="outline" size="sm">&lt;&lt;</Button>
+        <Button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1 || totalPages === 0} variant="outline" size="sm">&lt;</Button>
+        <span className="text-sm font-medium">Page {currentPage} of {totalPages || 1}</span>
+        <Button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages || totalPages === 0} variant="outline" size="sm">&gt;</Button>
+        <Button onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages || totalPages === 0} variant="outline" size="sm">&gt;&gt;</Button>
+      </div>
     </div>
   );
 }
