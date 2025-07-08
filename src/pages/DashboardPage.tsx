@@ -6,16 +6,20 @@ import StatCard from '../components/StatCard';
 import CalendarWidget from '../components/CalendarWidget';
 import StatusPieChart from '../components/StatusPieChart';
 import TaskListModal from '../components/TaskListModal';
-import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
 import type { Database } from '../database.types';
 
-// Tipe
 type Task = Database['public']['Tables']['tasks_master']['Row'];
 interface ChartData { overdue: number; zeroToTwoDays: number; threeToFiveDays: number; sixToNineDays: number; totalOngoing: number; }
 type ChartCategory = 'overdue' | 'zeroToTwoDays' | 'threeToFiveDays' | 'sixToNineDays';
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState([{ title: 'KR TERBIT', value: 0 }, { title: 'TOTAL MITIGASI', value: 0 }]);
+  const [stats, setStats] = useState([
+    { title: 'PAUSE', value: 0 },
+    { title: 'KR ONGOING', value: 0 },
+    { title: 'KR TERBIT', value: 0 },
+    { title: 'TOTAL MITIGASI', value: 0 },
+  ]);
   const [chartData, setChartData] = useState<ChartData>({ overdue: 0, zeroToTwoDays: 0, threeToFiveDays: 0, sixToNineDays: 0, totalOngoing: 0 });
   const [allOngoingTasks, setAllOngoingTasks] = useState<Task[]>([]);
   const [holidays, setHolidays] = useState<Date[]>([]);
@@ -24,11 +28,11 @@ export default function DashboardPage() {
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const availableYears = [2030, 2029, 2028, 2027, 2026, 2025, 2024, 2023];
 
-  const [mockToday, setMockToday] = useState<Date | null>(null);
-
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTasks, setSelectedTasks] = useState<Task[]>([]);
   const [modalTitle, setModalTitle] = useState('');
+  
+  const navigate = useNavigate();
 
   const calculateDeadline = useCallback((startDate: Date, workdays: number): Date => {
     let deadline = new Date(startDate);
@@ -58,26 +62,28 @@ export default function DashboardPage() {
   }, [holidays]);
   
   const getRemainingWorkingDays = useCallback((task: Task) => {
-    if (!task.tanggal_terbit || !task.durasi) return null;
+    if (!task.tanggal_terbit || !task.durasi || task.is_data_complete === false) return null;
     const startDate = startOfDay(new Date(task.tanggal_terbit));
     const deadline = calculateDeadline(startDate, task.durasi);
-    const today = startOfDay(mockToday || new Date());
+    const today = startOfDay(new Date());
     
     if (isSameDay(today, deadline)) return 0;
     if (today > deadline) {
       return -Math.max(1, calculateWorkingDaysBetween(addDays(deadline, 1), today));
     }
     return calculateWorkingDaysBetween(addDays(today, 1), deadline);
-  }, [calculateDeadline, calculateWorkingDaysBetween, mockToday]);
+  }, [calculateDeadline, calculateWorkingDaysBetween]);
 
   const getCountdown = useCallback((task: Task): { text: string; colorClass: string } => {
+    if (task.is_data_complete === false) {
+      return { text: "Pause", colorClass: 'text-blue-500' };
+    }
     const daysDiff = getRemainingWorkingDays(task);
     if (daysDiff === null) return { text: "-", colorClass: 'text-gray-700' };
     
     let colorClass = 'text-gray-700';
     if (daysDiff < 0) {
       colorClass = 'text-red-800';
-      // *** PERUBAHAN DI SINI ***
       return { text: 'Lewat SLA', colorClass };
     }
     if (daysDiff === 0) {
@@ -100,23 +106,32 @@ export default function DashboardPage() {
 
       try {
         const response = await fetch(`https://api-harilibur.vercel.app/api?year=${year}`);
-        if (!response.ok) throw new Error('Gagal mengambil data dari API Hari Libur');
         const holidayData: { holiday_date: string }[] = await response.json();
-        const holidayDates = holidayData.map(holiday => startOfDay(new Date(holiday.holiday_date)));
-        setHolidays(holidayDates);
+        setHolidays(holidayData.map(holiday => startOfDay(new Date(holiday.holiday_date))));
       } catch (error) { console.error(error); }
       
       const { data: doneTasks, error: doneError } = await supabase
         .from('tasks_master').select('rmp', { count: 'exact' })
         .eq('is_completed', true).gte('tanggal_terbit', startDate).lte('tanggal_terbit', endDate);
-      if (doneError) console.error(doneError);
-      else if (doneTasks) setStats([{ title: 'KR TERBIT', value: doneTasks.length }, { title: 'TOTAL MITIGASI', value: doneTasks.reduce((sum, task) => sum + (task.rmp || 0), 0) }]);
 
       const { data: ongoingTasks, error: ongoingError } = await supabase
-        .from('tasks_master').select('*').eq('is_completed', false)
-        .gte('tanggal_terbit', startDate).lte('tanggal_terbit', endDate);
-      if (ongoingError) console.error(ongoingError);
+        .from('tasks_master').select('*')
+        .eq('is_completed', false).gte('tanggal_terbit', startDate).lte('tanggal_terbit', endDate);
+      
+      if (ongoingError) console.error("Error fetching ongoing tasks:", ongoingError);
       else if (ongoingTasks) setAllOngoingTasks(ongoingTasks);
+
+      if (doneError) console.error("Error fetching done tasks:", doneError);
+      
+      const pausedCount = ongoingTasks?.filter(task => task.is_data_complete === false).length || 0;
+      const activeOngoingCount = (ongoingTasks?.length || 0) - pausedCount;
+
+      setStats([
+        { title: 'PAUSE', value: pausedCount },
+        { title: 'KR ONGOING', value: activeOngoingCount },
+        { title: 'KR TERBIT', value: doneTasks?.length || 0 },
+        { title: 'TOTAL MITIGASI', value: doneTasks?.reduce((sum, task) => sum + (task.rmp || 0), 0) || 0 },
+      ]);
       
       setLoading(false);
     }
@@ -126,7 +141,9 @@ export default function DashboardPage() {
   useEffect(() => {
     if (loading) return;
     let counts = { overdue: 0, zeroToTwoDays: 0, threeToFiveDays: 0, sixToNineDays: 0 };
-    allOngoingTasks.forEach(task => {
+    const activeTasks = allOngoingTasks.filter(task => task.is_data_complete !== false);
+    
+    activeTasks.forEach(task => {
       const remainingDays = getRemainingWorkingDays(task);
       if (remainingDays === null) return;
       if (remainingDays < 0) counts.overdue++;
@@ -134,11 +151,12 @@ export default function DashboardPage() {
       else if (remainingDays <= 5) counts.threeToFiveDays++;
       else if (remainingDays <= 9) counts.sixToNineDays++;
     });
-    setChartData({ ...counts, totalOngoing: allOngoingTasks.length });
-  }, [allOngoingTasks, loading, getRemainingWorkingDays, mockToday]);
+    setChartData({ ...counts, totalOngoing: activeTasks.length });
+  }, [allOngoingTasks, loading, getRemainingWorkingDays]);
 
   const handleChartClick = useCallback((category: ChartCategory, title: string) => {
-    const filteredTasks = allOngoingTasks.filter(task => {
+    const activeTasks = allOngoingTasks.filter(task => task.is_data_complete !== false);
+    const filteredTasks = activeTasks.filter(task => {
       const remainingDays = getRemainingWorkingDays(task);
       if (remainingDays === null) return false;
       switch (category) {
@@ -154,6 +172,29 @@ export default function DashboardPage() {
     setIsModalOpen(true);
   }, [allOngoingTasks, getRemainingWorkingDays]);
   
+  const handlePauseCardClick = () => {
+    const pausedTasks = allOngoingTasks.filter(task => task.is_data_complete === false);
+    setSelectedTasks(pausedTasks);
+    setModalTitle("Daftar Tugas yang Di-pause");
+    setIsModalOpen(true);
+  };
+
+  const handleStatCardClick = (title: string) => {
+    switch (title) {
+      case 'KR ONGOING':
+        navigate('/ongoing');
+        break;
+      case 'KR TERBIT':
+        navigate('/done');
+        break;
+      case 'TOTAL MITIGASI':
+        navigate('/done', { state: { highlightColumn: 'rmp' } });
+        break;
+      default:
+        break;
+    }
+  };
+
   const handleYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedYear(Number(e.target.value));
   };
@@ -166,36 +207,39 @@ export default function DashboardPage() {
             <h1 className="text-3xl font-bold text-gray-800">Reports</h1>
           </header>
 
-
           <div className="mb-8 grid grid-cols-1 md:grid-cols-4 gap-6">
             {loading ? <p>Memuat data chart...</p> : (
               <>
-                {/* Judul chart juga diubah */}
-                <div onClick={() => handleChartClick('overdue', 'Tugas Lewat SLA')} className="cursor-pointer">
-                  <StatusPieChart count={chartData.overdue} total={chartData.totalOngoing} color="#A40E26" title="Lewat SLA" />
-                </div>
-                <div onClick={() => handleChartClick('zeroToTwoDays', 'Sisa Waktu 0-2 Hari')} className="cursor-pointer">
-                  <StatusPieChart count={chartData.zeroToTwoDays} total={chartData.totalOngoing} color="#DC3545" title="Sisa Waktu 0-2 Hari" />
-                </div>
-                <div onClick={() => handleChartClick('threeToFiveDays', 'Sisa Waktu 3-5 Hari')} className="cursor-pointer">
-                  <StatusPieChart count={chartData.threeToFiveDays} total={chartData.totalOngoing} color="#FD7E14" title="Sisa Waktu 3-5 Hari" />
-                </div>
-                <div onClick={() => handleChartClick('sixToNineDays', 'Sisa Waktu 6-9 Hari')} className="cursor-pointer">
-                  <StatusPieChart count={chartData.sixToNineDays} total={chartData.totalOngoing} color="#FFC107" title="Sisa Waktu 6-9 Hari" />
-                </div>
+                <div onClick={() => handleChartClick('overdue', 'Tugas Lewat SLA')} className="cursor-pointer"><StatusPieChart count={chartData.overdue} total={chartData.totalOngoing} color="#A40E26" title="Lewat SLA" /></div>
+                <div onClick={() => handleChartClick('zeroToTwoDays', 'Sisa Waktu 0-2 Hari')} className="cursor-pointer"><StatusPieChart count={chartData.zeroToTwoDays} total={chartData.totalOngoing} color="#DC3545" title="Sisa Waktu 0-2 Hari" /></div>
+                <div onClick={() => handleChartClick('threeToFiveDays', 'Sisa Waktu 3-5 Hari')} className="cursor-pointer"><StatusPieChart count={chartData.threeToFiveDays} total={chartData.totalOngoing} color="#FD7E14" title="Sisa Waktu 3-5 Hari" /></div>
+                <div onClick={() => handleChartClick('sixToNineDays', 'Sisa Waktu 6-9 Hari')} className="cursor-pointer"><StatusPieChart count={chartData.sixToNineDays} total={chartData.totalOngoing} color="#FFC107" title="Sisa Waktu 6-9 Hari" /></div>
               </>
             )}
           </div>
           
-          <div className="flex items-center gap-6">
+          <div className="flex space-x-6 items-center">
             <div className="flex-none w-40">
               <select value={selectedYear} onChange={handleYearChange} className="w-full rounded-md border p-2 bg-white shadow-sm">
                 {availableYears.map(year => (<option key={year} value={year}>{year}</option>))}
               </select>
             </div>
-            <div className="flex-grow grid grid-cols-2 gap-6">
-              <StatCard title={'KR TERBIT'} value={stats[0].value} />
-              <StatCard title={'TOTAL MITIGASI'} value={stats[1].value} />
+            <div className="flex-grow grid grid-cols-4 gap-6">
+              {stats.map((stat, index) => {
+                const isClickable = ['KR ONGOING', 'KR TERBIT', 'TOTAL MITIGASI', 'PAUSE'].includes(stat.title);
+                const handleClick = () => {
+                  if (stat.title === 'PAUSE') {
+                    handlePauseCardClick();
+                  } else {
+                    handleStatCardClick(stat.title);
+                  }
+                };
+                return (
+                  <div key={index} className={isClickable ? 'cursor-pointer' : ''} onClick={isClickable ? handleClick : undefined}>
+                    <StatCard title={stat.title} value={stat.value} />
+                  </div>
+                );
+              })}
             </div>
           </div>
         </main>
@@ -204,13 +248,7 @@ export default function DashboardPage() {
         </aside>
       </div>
 
-      <TaskListModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        tasks={selectedTasks} 
-        title={modalTitle} 
-        getCountdown={getCountdown} 
-      />
+      <TaskListModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} tasks={selectedTasks} title={modalTitle} getCountdown={getCountdown} />
     </>
   );
 }

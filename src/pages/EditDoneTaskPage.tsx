@@ -8,7 +8,6 @@ export default function EditDoneTaskPage() {
   const navigate = useNavigate();
   const { taskId } = useParams();
 
-// State diperluas untuk mencakup semua kolom yang relevan
   const [formData, setFormData] = useState({
     judul: '',
     id_risk: 0,
@@ -17,12 +16,10 @@ export default function EditDoneTaskPage() {
     durasi: 0,
     no_nd: '',
     inisiator: '',
-    pics: [''], // pic diubah menjadi pics (array)
+    pics: [''],
   });
 
-  // State baru untuk menyimpan tanggal pembaruan terakhir
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
-  
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -35,10 +32,8 @@ export default function EditDoneTaskPage() {
         alert('Gagal memuat data tugas.');
         navigate(-1);
       } else if (data) {
-        // Memecah string PIC dari DB menjadi array
         const picArray = data.pic ? data.pic.split(', ') : [''];
         
-        // Mengisi state form dengan semua data dari database
         setFormData({
             judul: data.judul || '',
             id_risk: data.id_risk || 0,
@@ -47,13 +42,11 @@ export default function EditDoneTaskPage() {
             durasi: data.durasi || 0,
             no_nd: data.no_nd || '',
             inisiator: data.inisiator || '',
-            pics: picArray, // Mengisi state 'pics' dengan array
+            pics: picArray,
         });
 
-        // Logika untuk mengatur state lastUpdated
         if (data.updated_at) {
           const date = new Date(data.updated_at);
-          // Format tanggal menjadi string yang mudah dibaca
           const formattedDate = date.toLocaleDateString('id-ID', {
             day: 'numeric',
             month: 'long',
@@ -61,10 +54,8 @@ export default function EditDoneTaskPage() {
             hour: '2-digit',
             minute: '2-digit',
           });
-          // Simpan tanggal yang sudah diformat ke dalam state
           setLastUpdated(formattedDate);
         } else {
-          // Jika data tidak ada, pastikan state-nya null
           setLastUpdated(null);
         }
       }
@@ -79,7 +70,6 @@ export default function EditDoneTaskPage() {
     setFormData(prev => ({ ...prev, [name]: updatedValue }));
   };
 
-  // Penambahan fungsi-fungsi helper untuk mengelola PIC
   const handlePicChange = (index: number, value: string) => {
     const newPics = [...formData.pics];
     newPics[index] = value;
@@ -101,10 +91,8 @@ export default function EditDoneTaskPage() {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Menggabungkan array 'pics' menjadi satu string sebelum dikirim
     const picValue = formData.pics.filter(Boolean).join(', ');
 
-    // Memperbarui semua kolom saat menyimpan
     const { error } = await supabase
       .from('tasks_master')
       .update({
@@ -115,7 +103,7 @@ export default function EditDoneTaskPage() {
         durasi: formData.durasi,
         no_nd: formData.no_nd,
         inisiator: formData.inisiator,
-        pic: picValue, // Menggunakan nilai string yang sudah digabung
+        pic: picValue,
       })
       .eq('id', taskId);
 
@@ -123,7 +111,7 @@ export default function EditDoneTaskPage() {
       alert('Gagal menyimpan perubahan!');
     } else {
       alert('Perubahan berhasil disimpan!');
-      navigate('/done'); // Kembali ke halaman KR Done
+      navigate('/done');
     }
     setIsSubmitting(false);
   };
@@ -139,7 +127,6 @@ export default function EditDoneTaskPage() {
       </div>
       <h1 className="text-2xl font-bold text-gray-800 mb-6 ml-1">EDIT DATA DONE</h1>
 
-      {/* 4. Form diperbarui dengan semua input field yang diperlukan */}
       <form onSubmit={handleSubmit} className="max-w-2xl space-y-4">
         
         <div className="grid grid-cols-3 items-center gap-4">
@@ -177,20 +164,19 @@ export default function EditDoneTaskPage() {
           <input type="text" id="inisiator" name="inisiator" value={formData.inisiator} onChange={handleChange} className="col-span-2 border p-2 rounded-md" />
         </div>
         
-        {/* Form PIC diubah menjadi dinamis */}
+        {/* === BAGIAN PIC DINAMIS (INPUT MANUAL) === */}
         {formData.pics.map((pic, index) => (
           <div key={index} className="grid grid-cols-3 items-center gap-4">
             <label htmlFor={`pic-${index}`} className="text-right font-semibold text-gray-700">{`PIC ${index + 1}`}</label>
             <div className="col-span-2 flex items-center gap-2">
-              <select id={`pic-${index}`} value={pic} onChange={(e) => handlePicChange(index, e.target.value)} className="flex-grow border p-2 rounded-md bg-white">
-                <option value="">Pilih PIC</option>
-                <option value="Fernando">Fernando</option>
-                <option value="Andini">Andini</option>
-                <option value="Budi">Budi</option>
-                <option value="Citra">Citra</option>
-                <option value="Fachri">Fachri</option>
-                <option value="Alif">Alif</option>
-              </select>
+              <input
+                type="text"
+                id={`pic-${index}`}
+                value={pic}
+                onChange={(e) => handlePicChange(index, e.target.value)}
+                className="flex-grow border p-2 rounded-md"
+                placeholder="Masukkan nama PIC"
+              />
               {formData.pics.length > 1 && (
                 <Button type="button" onClick={() => removePicInput(index)} className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 font-bold">-</Button>
               )}
@@ -201,7 +187,6 @@ export default function EditDoneTaskPage() {
           <Button type="button" onClick={addPicInput} className="bg-blue-500 hover:bg-blue-600 text-white">+ Tambah PIC</Button>
         </div></div>
         
-        {/* Tampilan JSX diperbarui dengan info Last Updated */}
         <div className="flex justify-between items-center pt-4">
           <div>
             <p className="text-sm text-gray-500 italic">

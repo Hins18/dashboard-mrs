@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Plus, ArrowUpDown, FilePenLine, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import type { Database } from '../database.types';
 
 type Task = Database['public']['Tables']['tasks_master']['Row'];
@@ -12,11 +12,15 @@ export default function DonePage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation(); // 1. Gunakan hook useLocatio
 
   // 1. TAMBAHKAN STATE UNTUK PAGINASI DAN SORTING
   const [currentPage, setCurrentPage] = useState(1);
   const [totalTasks, setTotalTasks] = useState(0);
   const [sort, setSort] = useState({ column: 'tanggal_terbit', ascending: false });
+
+  // 2. State baru untuk menyimpan nama kolom yang akan disorot
+  const [highlightedColumn, setHighlightedColumn] = useState<string | null>(null);
   
   const itemsPerPage = 5;
   const from = (currentPage - 1) * itemsPerPage;
@@ -25,6 +29,22 @@ export default function DonePage() {
   useEffect(() => {
     fetchDoneTasks();
   }, [currentPage, sort]);
+
+  // useEffect baru untuk menangani sorotan kolom
+  useEffect(() => {
+    const colToHighlight = location.state?.highlightColumn;
+    if (colToHighlight) {
+      setHighlightedColumn(colToHighlight);
+      // Hapus sorotan setelah 3 detik
+      const timer = setTimeout(() => {
+        setHighlightedColumn(null);
+        // Hapus state dari URL
+        navigate(location.pathname, { replace: true, state: {} }); 
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [location.state, navigate]);
+
 
   // 3. PERBARUI FUNGSI FETCH DATA DENGAN LOGIKA SORTING & PAGINASI
   async function fetchDoneTasks() {
@@ -90,8 +110,8 @@ export default function DonePage() {
               <th scope="col" className="px-6 py-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('id_risk')}>
                 ID RISK<SortIndicator columnName="id_risk" />
               </th>
-              <th scope="col" className="px-6 py-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('rmp')}>
-                RMP<SortIndicator columnName="rmp" />
+              <th scope="col" className={`px-6 py-3 cursor-pointer hover:bg-gray-100 text-center transition-colors duration-300 ${highlightedColumn === 'rmp' ? 'bg-yellow-200' : ''}`} onClick={() => handleSort('rmp')}>
+                 RMP<SortIndicator columnName="rmp" />
               </th>
               <th scope="col" className="px-6 py-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('tanggal_terbit')}>
                 TANGGAL TERBIT<SortIndicator columnName="tanggal_terbit" />
@@ -102,8 +122,8 @@ export default function DonePage() {
 
               {/* Kolom yang tidak bisa di-sort */}
               <th scope="col" className="px-6 py-3">NO ND</th>
-              <th scope="col" className="px-6 py-3">INISIATOR</th>
-              <th scope="col" className="px-6 py-3">PIC</th>
+               <th scope="col" className="px-6 py-3 cursor-pointer" onClick={() => handleSort('inisiator')}>Inisiator<SortIndicator columnName="inisiator" /></th>
+              <th scope="col" className="px-6 py-3 cursor-pointer" onClick={() => handleSort('pic')}>PIC<SortIndicator columnName="pic" /></th>
               <th scope="col" className="px-6 py-3 text-center w-28">AKSI</th>
             </tr>
           </thead>

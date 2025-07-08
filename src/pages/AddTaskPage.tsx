@@ -146,52 +146,45 @@ export default function AddTaskPage() {
           <label htmlFor="durasi" className="text-right font-semibold text-gray-700">PERIODE KERJA (HARI)</label>
           <input type="number" id="durasi" name="durasi" value={formData.durasi === 0 ? '' : formData.durasi} onChange={handleChange} className="col-span-2 border p-2 rounded-md w-24" />
         </div>
-        
-        {/* === BAGIAN PIC DINAMIS === */}
-        {formData.pics.map((pic, index) => (
-          <div key={index} className="grid grid-cols-3 items-center gap-4">
-            <label htmlFor={`pic-${index}`} className="text-right font-semibold text-gray-700">
-              {`PIC ${index + 1}`}
-            </label>
-            <div className="col-span-2 flex items-center gap-2">
-              <select 
-                id={`pic-${index}`} 
-                name={`pic-${index}`} 
-                value={pic} 
-                onChange={(e) => handlePicChange(index, e.target.value)} 
-                className="flex-grow border p-2 rounded-md bg-white"
-              >
-                <option value="">Pilih PIC</option>
-                <option value="Fernando">Fernando</option>
-                <option value="Andini">Andini</option>
-                <option value="Budi">Budi</option>
-                <option value="Citra">Citra</option>
-                <option value="Fachri">Fachri</option>
-                <option value="Alif">Alif</option>
-              </select>
-              {/* Tombol hapus hanya muncul jika ada lebih dari satu PIC */}
-              {formData.pics.length > 1 && (
-                <Button 
-                  type="button" 
-                  onClick={() => removePicInput(index)} 
-                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 font-bold"
-                >
-                  -
-                </Button>
-              )}
-            </div>
-          </div>
-        ))}
-        
-        {/* Tombol untuk menambah PIC baru */}
-        <div className="grid grid-cols-3">
-          <div className="col-start-2 col-span-2">
-            <Button type="button" onClick={addPicInput} className="bg-blue-500 hover:bg-blue-600 text-white">
-              + Tambah PIC
-            </Button>
-          </div>
-        </div>
-        {/* === AKHIR BAGIAN PIC DINAMIS === */}
+{/* === BAGIAN PIC DINAMIS === */}
+{formData.pics.map((pic, index) => (
+  <div key={index} className="grid grid-cols-3 items-center gap-4">
+    <label htmlFor={`pic-${index}`} className="text-right font-semibold text-gray-700">
+      {`PIC ${index + 1}`}
+    </label>
+    <div className="col-span-2 flex items-center gap-2">
+      <input 
+        type="text"
+        id={`pic-${index}`} 
+        name={`pic-${index}`} 
+        value={pic} 
+        placeholder="Masukkan nama PIC"
+        onChange={(e) => handlePicChange(index, e.target.value)} 
+        className="flex-grow border p-2 rounded-md"
+      />
+      {/* Tombol hapus hanya muncul jika ada lebih dari satu PIC */}
+      {formData.pics.length > 1 && (
+        <Button 
+          type="button" 
+          onClick={() => removePicInput(index)} 
+          className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 font-bold"
+        >
+          -
+        </Button>
+      )}
+    </div>
+  </div>
+))}
+
+{/* Tombol untuk menambah PIC baru */}
+<div className="grid grid-cols-3">
+  <div className="col-start-2 col-span-2">
+    <Button type="button" onClick={addPicInput} className="bg-blue-500 hover:bg-blue-600 text-white">
+      + Tambah PIC
+    </Button>
+  </div>
+</div>
+{/* === AKHIR BAGIAN PIC DINAMIS === */}
 
         <div className="grid grid-cols-3 items-start gap-4">
           <label htmlFor="remarks" className="text-right font-semibold text-gray-700 pt-2">REMARKS</label>

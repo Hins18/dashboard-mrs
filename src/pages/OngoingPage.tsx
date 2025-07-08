@@ -5,7 +5,8 @@ import { Plus, ArrowUpDown, FilePenLine, Trash2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate, useLocation } from 'react-router-dom';
 import type { Database } from '../database.types';
-import { eachDayOfInterval, isSameDay, isWeekend, addDays, startOfDay } from 'date-fns';
+import { eachDayOfInterval, isSameDay, isWeekend, addDays, startOfDay, format } from 'date-fns';
+
 
 type Task = Database['public']['Tables']['tasks_master']['Row'];
 
@@ -18,13 +19,29 @@ export default function OngoingPage() {
   // *** DIADOPSI DARI OngoingPage (2).tsx: Default urutan diubah ke tanggal dibuat (terbaru) ***
   const [sort, setSort] = useState({ column: 'created_at' as keyof Task | 'durasi', ascending: false });
   
-  const [mockToday, setMockToday] = useState<Date | null>(null);
+  const [mockToday, setMockToday] = useState<Date | null>(() => {
+  const savedDate = sessionStorage.getItem('mockToday');
+  if (savedDate) {
+    return startOfDay(new Date(savedDate));
+  }
+  return null;
+});
   const [highlightedRow, setHighlightedRow] = useState<number | null>(null);
 
   const itemsPerPage = 5;
   const navigate = useNavigate();
   const location = useLocation();
   const rowRefs = useRef<Map<number, HTMLTableRowElement>>(new Map());
+  const handleMockDateChange = (date: Date | null) => {
+  if (date) {
+    const startOfSelectedDay = startOfDay(date);
+    setMockToday(startOfSelectedDay);
+    sessionStorage.setItem('mockToday', startOfSelectedDay.toISOString());
+  } else {
+    setMockToday(null);
+    sessionStorage.removeItem('mockToday');
+  }
+};
 
   const calculateDeadline = useCallback((startDate: Date, workdays: number): Date => {
     let deadline = new Date(startDate);
@@ -53,43 +70,62 @@ export default function OngoingPage() {
     return count;
   }, [holidays]);
 
-  const getCountdownValue = useCallback((task: Task): number => {
-    if (!task.tanggal_terbit || !task.durasi) return Infinity;
-    const startDate = startOfDay(new Date(task.tanggal_terbit));
-    const deadline = calculateDeadline(startDate, task.durasi);
-    const today = startOfDay(mockToday || new Date());
-    
-    if (isSameDay(today, deadline)) return 0;
-    if (today > deadline) {
-      return -Math.max(1, calculateWorkingDaysBetween(addDays(deadline, 1), today));
-    }
-    return calculateWorkingDaysBetween(addDays(today, 1), deadline);
-  }, [calculateDeadline, calculateWorkingDaysBetween, mockToday]);
+// src/pages/OngoingPage.tsx
 
-  const getCountdown = useCallback((task: Task): { text: string; colorClass: string } => {
-    // Fitur "Pause" dari OngoingPage.tsx asli dipertahankan
-    if (task.is_data_complete === false) {
-      return { text: 'Pause', colorClass: 'text-blue-500' };
-    }
+// GANTI FUNGSI getCountdownValue ANDA DENGAN VERSI INI
+const getCountdownValue = useCallback((task: Task): number => {
+  if (!task.tanggal_terbit || !task.durasi) return Infinity;
 
-    const daysDiff = getCountdownValue(task);
-    if (daysDiff === Infinity) return { text: "-", colorClass: 'text-gray-700' };
+  const today = startOfDay(mockToday || new Date());
 
-    let colorClass = 'text-gray-700';
-    if (daysDiff < 0) {
-      colorClass = 'text-red-800';
-      return { text: 'Lewat SLA', colorClass };
-    }
-    if (daysDiff === 0) {
-      colorClass = 'text-red-600';
-      return { text: 'Hari Ini', colorClass };
-    }
-    if (daysDiff <= 3) colorClass = 'text-red-600';
-    else if (daysDiff <= 6) colorClass = 'text-orange-500';
-    else if (daysDiff <= 9) colorClass = 'text-yellow-500';
+  // Logika untuk tugas yang di-resume sudah benar, tidak perlu diubah.
+  if (task.is_data_complete && task.tanggal_resume && task.sisa_durasi_saat_pause != null) {
+      const resumeDate = startOfDay(new Date(task.tanggal_resume));
+      const workdaysLeftWhenPaused = task.sisa_durasi_saat_pause;
+      const workdaysPassedSinceResume = calculateWorkingDaysBetween(resumeDate, today);
+      const newCountdown = workdaysLeftWhenPaused - (workdaysPassedSinceResume - 1);
+      return Math.max(0, newCountdown);
 
-    return { text: `${daysDiff} hari lagi`, colorClass };
-  }, [getCountdownValue]);
+  } else {
+      // --- PENYESUAIAN LOGIKA UNTUK TUGAS NORMAL ---
+      const startDate = startOfDay(new Date(task.tanggal_terbit));
+      const deadline = calculateDeadline(startDate, task.durasi);
+      
+      // Logika sebelumnya: calculateWorkingDaysBetween(today, deadline)
+      // Logika BARU: Hitung sisa waktu MULAI DARI BESOK (H+1).
+      return calculateWorkingDaysBetween(addDays(today, 1), deadline);
+  }
+
+}, [calculateDeadline, calculateWorkingDaysBetween, mockToday]);  const getCountdown = useCallback((task: Task): { text: string; colorClass: string } => {
+  
+  if (task.is_data_complete === false) {
+    if (task.sisa_durasi_saat_pause != null) {
+        const text = task.sisa_durasi_saat_pause >= 0
+          ? `Pause (${task.sisa_durasi_saat_pause} hari)`
+          : `Pause (Lewat SLA)`;
+        return { text, colorClass: 'text-blue-500' };
+    }
+    return { text: 'Pause', colorClass: 'text-blue-500' };
+  }
+
+  const daysDiff = getCountdownValue(task);
+  if (daysDiff === Infinity) return { text: "-", colorClass: 'text-gray-700' };
+
+  let colorClass = 'text-gray-700';
+  if (daysDiff < 0) {
+    colorClass = 'text-red-800';
+    return { text: 'Lewat SLA', colorClass };
+  }
+  if (daysDiff === 0) {
+    colorClass = 'text-red-600';
+    return { text: 'Hari Ini', colorClass };
+  }
+  if (daysDiff <= 3) colorClass = 'text-red-600';
+  else if (daysDiff <= 6) colorClass = 'text-orange-500';
+  else if (daysDiff <= 9) colorClass = 'text-yellow-500';
+
+  return { text: `${daysDiff} hari lagi`, colorClass };
+}, [getCountdownValue]);
 
   useEffect(() => {
     async function loadInitialData() {
@@ -232,16 +268,29 @@ export default function OngoingPage() {
         </Button>
       </div>
 
-      <div className="p-4 bg-yellow-100 border border-yellow-300 rounded-lg mb-6 text-sm">
-        <p className="font-bold mb-2">Panel Simulasi Waktu</p>
-        <div className="flex items-center gap-4">
-            <label htmlFor="mock-date">Simulasikan "Hari Ini" sebagai:</label>
-            <input type="date" id="mock-date" className="border p-1 rounded-md"
-              onChange={(e) => setMockToday(e.target.value ? startOfDay(new Date(e.target.value)) : null)}
-            />
-            <Button variant="ghost" size="sm" onClick={() => setMockToday(null)}>Reset</Button>
-        </div>
-      </div>
+<div className="p-4 bg-yellow-100 border border-yellow-300 rounded-lg mb-6 text-sm">
+  <p className="font-bold mb-2">Panel Simulasi Waktu</p>
+  <div className="flex items-center gap-4">
+    <label htmlFor="mock-date">Simulasikan "Hari Ini" sebagai:</label>
+    <input
+  type="date"
+  id="mock-date"
+  className="border p-1 rounded-md"
+  value={mockToday ? format(mockToday, 'yyyy-MM-dd') : ''}
+  onChange={(e) => {
+    if (!e.target.value) {
+      handleMockDateChange(null);
+      return;
+    }
+    // PERBAIKAN: Mengatasi masalah timezone dengan membaca tanggal sebagai waktu lokal
+    const dateString = e.target.value; // Contoh: "2025-07-06"
+    const localDate = new Date(dateString + 'T00:00:00'); // Memaksa browser membacanya sebagai waktu lokal
+    handleMockDateChange(localDate);
+  }}
+/>
+    <Button variant="ghost" size="sm" onClick={() => handleMockDateChange(null)}>Reset</Button>
+  </div>
+</div>
 
       <div className="bg-white rounded-lg shadow-sm border overflow-x-auto">
         <table className="w-full text-sm text-left text-gray-600">
@@ -287,9 +336,27 @@ export default function OngoingPage() {
                     <td className="px-6 py-4">{task.pic}</td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex justify-center space-x-2">
-                        <Button className="bg-blue-500 hover:bg-blue-600 text-white" size="sm" onClick={() => navigate(`/edit-ongoing/${task.id}`)}>
-                          <FilePenLine size={16} />
-                        </Button>
+                        {/* GANTI SELURUH TOMBOL EDIT ANDA DENGAN INI */}
+<Button 
+  className="bg-blue-500 hover:bg-blue-600 text-white" 
+  size="sm" 
+  onClick={() => {
+    // Ambil nilai sisa waktu (angka)
+    const countdownValue = getCountdownValue(task);
+
+    // Pindah halaman dengan MEMBAWA data penting
+    navigate(`/edit-ongoing/${task.id}`, { 
+      state: { 
+        // 1. Kirim tanggal dari panel simulasi
+        mockToday: mockToday, 
+        // 2. Kirim nilai sisa waktu yang sudah dihitung
+        initialCountdown: countdownValue 
+      } 
+    });
+  }}
+>
+  <FilePenLine size={16} />
+</Button>
                         <Button variant="destructive" size="sm" onClick={() => handleDelete(task.id)}>
                           <Trash2 size={16} />
                         </Button>
