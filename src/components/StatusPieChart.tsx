@@ -1,4 +1,5 @@
-// src/components/StatusPieChart.tsx
+// Ganti seluruh isi file dengan kode ini
+
 import { PieChart, Pie, Cell, ResponsiveContainer, Label } from 'recharts';
 
 interface StatusPieChartProps {
@@ -9,13 +10,11 @@ interface StatusPieChartProps {
 }
 
 export default function StatusPieChart({ count, total, color, title }: StatusPieChartProps) {
-  // Pastikan data selalu ada agar chart tidak error, bahkan jika nilainya 0
   const data = [
     { name: 'count', value: count },
     { name: 'total', value: Math.max(0, total - count) }, 
   ];
 
-  // Jika total 0, maka persentase juga 0 untuk menghindari NaN
   const percentage = total > 0 ? ((count / total) * 100).toFixed(0) : 0;
 
   return (
@@ -33,17 +32,16 @@ export default function StatusPieChart({ count, total, color, title }: StatusPie
               endAngle={450}
               paddingAngle={0}
               dataKey="value"
-              // *** PERBAIKAN FINAL: Animasi aktif hanya jika total data lebih dari 0 ***
               isAnimationActive={total > 0} 
             >
-              <Cell key={`cell-0`} fill={color} />
-              <Cell key={`cell-1`} fill="#e9ecef" />
-              <Label
-                value={`${count}`}
-                position="center"
-                className="fill-gray-800 text-3xl font-bold"
-              />
+              <Cell key="cell-0" fill={color} />
+              <Cell key="cell-1" fill="#e9ecef" />
             </Pie>
+            <Label
+              value={`${count}`}
+              position="center"
+              className="fill-gray-800 text-3xl font-bold"
+            />
           </PieChart>
         </ResponsiveContainer>
       </div>

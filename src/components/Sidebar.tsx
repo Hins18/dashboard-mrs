@@ -1,5 +1,5 @@
 // src/components/Sidebar.tsx
-import { LayoutDashboard, Clock, CheckCircle, BarChart, FileText } from 'lucide-react';
+import { LayoutDashboard, Clock, CheckCircle } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 
 const NavItem = ({ icon: Icon, label, to }: { icon: React.ElementType, label: string, to: string }) => {

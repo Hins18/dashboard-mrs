@@ -1,7 +1,7 @@
 // src/pages/DonePage.tsx
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Plus, ArrowUpDown, FilePenLine, Trash2 } from 'lucide-react';
+import { Plus, FilePenLine, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate, useLocation } from 'react-router-dom';
 import type { Database } from '../database.types';
@@ -112,7 +112,8 @@ export default function DonePage() {
 
   const SortIndicator = ({ columnName }: { columnName: string }) => {
     if (sort.column !== columnName) return null;
-    return sort.ascending ? ' 🔼' : ' 🔽';
+    // Bungkus teks dengan <span> agar menjadi elemen JSX yang valid
+    return <span>{sort.ascending ? ' 🔼' : ' 🔽'}</span>;
   };
 
   return (

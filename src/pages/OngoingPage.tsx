@@ -1,7 +1,7 @@
 // src/pages/OngoingPage.tsx
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Plus, ArrowUpDown, FilePenLine, Trash2, RotateCw } from 'lucide-react';
+import { Plus, FilePenLine, Trash2, RotateCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate, useLocation } from 'react-router-dom';
 import type { Database } from '../database.types';
@@ -145,20 +145,6 @@ export default function OngoingPage() {
     fetchData();
   }, [fetchData]);
 
-  const handleCompleteTask = async (taskId: number) => {
-    if (window.confirm("Apakah Anda yakin ingin menandai tugas ini sebagai selesai?")) {
-      const { error } = await supabase
-        .from('tasks_master')
-        .update({ is_completed: true, progress_percentage: 100 })
-        .eq('id', taskId);
-      if (error) {
-        alert('Gagal menyelesaikan tugas.');
-      } else {
-        setRawTasks(prev => prev.filter(task => task.id !== taskId));
-      }
-    }
-  };
-
   const openDeleteModal = (taskId: number) => {
     setTaskToDelete(taskId);
     setIsModalOpen(true);
@@ -288,9 +274,10 @@ export default function OngoingPage() {
 
   const totalPages = Math.ceil(rawTasks.length / itemsPerPage);
   
-  const SortIndicator = ({ columnName }: { columnName: keyof Task | 'durasi' }) => {
+  const SortIndicator = ({ columnName }: { columnName: string }) => { // Tipe diubah ke string agar lebih fleksibel
     if (sort.column !== columnName) return null;
-    return sort.ascending ? ' 🔼' : ' 🔽';
+    // Dibungkus dengan <span> agar menjadi elemen JSX yang valid
+    return <span>{sort.ascending ? ' 🔼' : ' 🔽'}</span>;
   };
   
   return (

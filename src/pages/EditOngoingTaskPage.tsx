@@ -4,7 +4,7 @@
   import { supabase } from '../lib/supabaseClient';
   import { Button } from '@/components/ui/button';
   // Impor fungsi date-fns yang dibutuhkan
-import { eachDayOfInterval, isSameDay, isWeekend, addDays, startOfDay, differenceInDays } from 'date-fns';
+import { eachDayOfInterval, isSameDay, isWeekend, addDays, startOfDay } from 'date-fns';
   export default function EditOngoingTaskPage() {
   const navigate = useNavigate();
   const { taskId } = useParams();
@@ -81,7 +81,7 @@ import { eachDayOfInterval, isSameDay, isWeekend, addDays, startOfDay, differenc
     async function fetchTaskData() {
       if (!taskId) return;
       setLoading(true);
-      const { data, error } = await supabase.from('tasks_master').select('*').eq('id', taskId).single();
+      const { data, error } = await supabase.from('tasks_master').select('*').eq('id', Number(taskId)).single();
       
       if (error) {
         alert('Gagal memuat data tugas.');
@@ -224,7 +224,7 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
   const { error } = await supabase
     .from('tasks_master')
     .update(updatePayload)
-    .eq('id', taskId);
+    .eq('id', Number(taskId));
 
   if (error) {
     console.error("Error updating:", error);

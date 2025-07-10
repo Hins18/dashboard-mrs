@@ -27,7 +27,7 @@ export default function EditDoneTaskPage() {
     async function fetchTaskData() {
       if (!taskId) return;
       setLoading(true);
-      const { data, error } = await supabase.from('tasks_master').select('*').eq('id', taskId).single();
+      const { data, error } = await supabase.from('tasks_master').select('*').eq('id', Number(taskId)).single();
       if (error) {
         alert('Gagal memuat data tugas.');
         navigate(-1);
@@ -105,7 +105,7 @@ export default function EditDoneTaskPage() {
         inisiator: formData.inisiator,
         pic: picValue,
       })
-      .eq('id', taskId);
+      .eq('id', Number(taskId));
 
     if (error) {
       alert('Gagal menyimpan perubahan!');

@@ -9,6 +9,16 @@ import TaskListModal from '../components/TaskListModal';
 import { useNavigate } from 'react-router-dom';
 import type { Database } from '../database.types';
 
+export type Notification = {
+  id: number;
+  title: string;
+  pic: string;
+  remaining: string;
+  time: string;
+  urgency: 'high' | 'medium';
+  read: boolean;
+};
+
 type Task = Database['public']['Tables']['tasks_master']['Row'];
 interface ChartData { overdue: number; zeroToTwoDays: number; threeToFiveDays: number; sixToNineDays: number; totalOngoing: number; }
 type ChartCategory = 'overdue' | 'zeroToTwoDays' | 'threeToFiveDays' | 'sixToNineDays';
