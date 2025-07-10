@@ -1,3 +1,4 @@
+// src/pages/AddTaskPage.tsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
@@ -5,13 +6,12 @@ import { Button } from '@/components/ui/button';
 
 export default function AddTaskPage() {
   const navigate = useNavigate();
-  // State dikembalikan seperti semula, dengan 'tanggal_terbit' dan 'durasi'
   const [formData, setFormData] = useState({
     judul: '',
     id_risk: 0,
     rmp: 0,
-    tanggal_terbit: '', // <-- Input AMS (Tanggal Terbit) dikembalikan
-    durasi: 14,         // <-- Input Periode Kerja (Durasi)
+    tanggal_terbit: '',
+    durasi: 14,
     no_nd: '',
     inisiator: '',
     pics: [''],
@@ -23,36 +23,34 @@ export default function AddTaskPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-  const { name, value, type, checked } = e.target as HTMLInputElement;
+    const { name, value, type } = e.target as HTMLInputElement;
+    const { checked } = e.target as HTMLInputElement;
 
-  if (type === 'checkbox') {
-    setFormData(prev => ({ ...prev, [name]: checked }));
-  } else {
-    const updatedValue = type === 'number' ? parseInt(value, 10) || 0 : value;
-    setFormData(prev => ({ ...prev, [name]: updatedValue }));
-  }
-};
+    if (type === 'checkbox') {
+      setFormData(prev => ({ ...prev, [name]: checked }));
+    } else {
+      const updatedValue = type === 'number' ? parseInt(value, 10) || 0 : value;
+      setFormData(prev => ({ ...prev, [name]: updatedValue }));
+    }
+  };
 
-  // Handler khusus untuk mengubah nilai pada array PIC
   const handlePicChange = (index: number, value: string) => {
     const newPics = [...formData.pics];
     newPics[index] = value;
     setFormData(prev => ({ ...prev, pics: newPics }));
   };
 
-  // Fungsi untuk menambah input PIC baru
   const addPicInput = () => {
     setFormData(prev => ({ ...prev, pics: [...prev.pics, ''] }));
   };
 
-  // Fungsi untuk menghapus input PIC
   const removePicInput = (index: number) => {
-    // Hanya izinkan penghapusan jika ada lebih dari satu input
     if (formData.pics.length > 1) {
       const newPics = formData.pics.filter((_, i) => i !== index);
       setFormData(prev => ({ ...prev, pics: newPics }));
     }
   };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.judul) {
@@ -61,7 +59,6 @@ export default function AddTaskPage() {
     }
     setIsSubmitting(true);
 
-    // Gabungkan semua PIC dari array menjadi satu string
     const picValue = formData.pics.filter(Boolean).join(', ');
 
     const { error } = await supabase
@@ -74,7 +71,7 @@ export default function AddTaskPage() {
         durasi: formData.durasi,
         no_nd: formData.no_nd,
         inisiator: formData.inisiator,
-        pic: picValue, // <-- Menggunakan nilai PIC yang sudah digabung
+        pic: picValue,
         assigned_by: formData.assigned_by,
         remarks: formData.remarks,
         progress_percentage: formData.progress_percentage,
@@ -86,8 +83,13 @@ export default function AddTaskPage() {
       console.error('Error inserting data:', error);
       alert('Gagal menyimpan data!');
     } else {
-      alert('Data berhasil ditambahkan!');
-      navigate('/ongoing');
+      // Ganti alert dengan navigate dan state
+      navigate('/ongoing', { 
+        state: { 
+          message: 'Data berhasil ditambahkan!', 
+          type: 'success' 
+        } 
+      });
     }
     setIsSubmitting(false);
   };
@@ -106,13 +108,11 @@ export default function AddTaskPage() {
           <input type="text" id="judul" name="judul" value={formData.judul} onChange={handleChange} className="col-span-2 border p-2 rounded-md" required />
         </div>
 
-        {/* INPUT TANGGAL (AMS) DIKEMBALIKAN */}
         <div className="grid grid-cols-3 items-center gap-4">
           <label htmlFor="tanggal_terbit" className="text-right font-semibold text-gray-700">AMS (Tanggal Terbit)</label>
           <input type="date" id="tanggal_terbit" name="tanggal_terbit" value={formData.tanggal_terbit} onChange={handleChange} className="col-span-2 border p-2 rounded-md" />
         </div>
 
-        {/* Form lengkap Anda yang lain */}
         <div className="grid grid-cols-3 items-center gap-4">
           <label htmlFor="progress_percentage" className="text-right font-semibold text-gray-700">Data Complete</label>
           <div className="col-span-2 flex items-center">
@@ -121,21 +121,20 @@ export default function AddTaskPage() {
           </div>
         </div>
 
-        {/* INPUT CHECKBOX KELENGKAPAN DATA */}
-<div className="grid grid-cols-3 items-center gap-4">
-    <label htmlFor="is_data_complete" className="text-right font-semibold text-gray-700">Kelengkapan Data</label>
-    <div className="col-span-2 flex items-center">
-        <input 
-            type="checkbox" 
-            id="is_data_complete" 
-            name="is_data_complete" 
-            checked={formData.is_data_complete} 
-            onChange={handleChange} 
-            className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-        />
-        <span className="ml-2 text-gray-600">Lengkap (countdown berjalan)</span>
-    </div>
-</div>
+        <div className="grid grid-cols-3 items-center gap-4">
+            <label htmlFor="is_data_complete" className="text-right font-semibold text-gray-700">Kelengkapan Data</label>
+            <div className="col-span-2 flex items-center">
+                <input 
+                    type="checkbox" 
+                    id="is_data_complete" 
+                    name="is_data_complete" 
+                    checked={formData.is_data_complete} 
+                    onChange={handleChange} 
+                    className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="ml-2 text-gray-600">Lengkap (countdown berjalan)</span>
+            </div>
+        </div>
 
         <div className="grid grid-cols-3 items-center gap-4">
           <label htmlFor="inisiator" className="text-right font-semibold text-gray-700">INISIATOR</label>
@@ -146,45 +145,43 @@ export default function AddTaskPage() {
           <label htmlFor="durasi" className="text-right font-semibold text-gray-700">PERIODE KERJA (HARI)</label>
           <input type="number" id="durasi" name="durasi" value={formData.durasi === 0 ? '' : formData.durasi} onChange={handleChange} className="col-span-2 border p-2 rounded-md w-24" />
         </div>
-{/* === BAGIAN PIC DINAMIS === */}
-{formData.pics.map((pic, index) => (
-  <div key={index} className="grid grid-cols-3 items-center gap-4">
-    <label htmlFor={`pic-${index}`} className="text-right font-semibold text-gray-700">
-      {`PIC ${index + 1}`}
-    </label>
-    <div className="col-span-2 flex items-center gap-2">
-      <input 
-        type="text"
-        id={`pic-${index}`} 
-        name={`pic-${index}`} 
-        value={pic} 
-        placeholder="Masukkan nama PIC"
-        onChange={(e) => handlePicChange(index, e.target.value)} 
-        className="flex-grow border p-2 rounded-md"
-      />
-      {/* Tombol hapus hanya muncul jika ada lebih dari satu PIC */}
-      {formData.pics.length > 1 && (
-        <Button 
-          type="button" 
-          onClick={() => removePicInput(index)} 
-          className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 font-bold"
-        >
-          -
-        </Button>
-      )}
-    </div>
-  </div>
-))}
-
-{/* Tombol untuk menambah PIC baru */}
-<div className="grid grid-cols-3">
-  <div className="col-start-2 col-span-2">
-    <Button type="button" onClick={addPicInput} className="bg-blue-500 hover:bg-blue-600 text-white">
-      + Tambah PIC
-    </Button>
-  </div>
-</div>
-{/* === AKHIR BAGIAN PIC DINAMIS === */}
+        
+        {/* === BAGIAN PIC DINAMIS (INPUT MANUAL) === */}
+        {formData.pics.map((pic, index) => (
+          <div key={index} className="grid grid-cols-3 items-center gap-4">
+            <label htmlFor={`pic-${index}`} className="text-right font-semibold text-gray-700">
+              {`PIC ${index + 1}`}
+            </label>
+            <div className="col-span-2 flex items-center gap-2">
+              <input
+                type="text"
+                id={`pic-${index}`}
+                value={pic}
+                onChange={(e) => handlePicChange(index, e.target.value)}
+                className="flex-grow border p-2 rounded-md"
+                placeholder="Masukkan nama PIC"
+              />
+              {formData.pics.length > 1 && (
+                <Button 
+                  type="button" 
+                  onClick={() => removePicInput(index)} 
+                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 font-bold"
+                >
+                  -
+                </Button>
+              )}
+            </div>
+          </div>
+        ))}
+        
+        <div className="grid grid-cols-3">
+          <div className="col-start-2 col-span-2">
+            <Button type="button" onClick={addPicInput} className="bg-blue-500 hover:bg-blue-600 text-white">
+              + Tambah PIC
+            </Button>
+          </div>
+        </div>
+        {/* === AKHIR BAGIAN PIC DINAMIS === */}
 
         <div className="grid grid-cols-3 items-start gap-4">
           <label htmlFor="remarks" className="text-right font-semibold text-gray-700 pt-2">REMARKS</label>

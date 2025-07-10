@@ -110,11 +110,17 @@ export default function EditDoneTaskPage() {
     if (error) {
       alert('Gagal menyimpan perubahan!');
     } else {
-      alert('Perubahan berhasil disimpan!');
-      navigate('/done');
+      // Ganti alert dengan navigate dan state
+      navigate('/done', { 
+        state: { 
+          message: 'Perubahan berhasil disimpan!', 
+          type: 'info' 
+        } 
+      });
     }
     setIsSubmitting(false);
   };
+
 
   if (loading) {
     return <div className="p-8">Memuat data...</div>;

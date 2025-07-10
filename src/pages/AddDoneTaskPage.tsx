@@ -53,7 +53,6 @@ export default function AddDoneTaskPage() {
     }
     setIsSubmitting(true);
 
-    // Gabungkan array PIC menjadi satu string, abaikan yang kosong
     const picValue = formData.pics.filter(Boolean).join(', ');
 
     const { error } = await supabase
@@ -66,7 +65,7 @@ export default function AddDoneTaskPage() {
         durasi: formData.durasi,
         no_nd: formData.no_nd,
         inisiator: formData.inisiator,
-        pic: picValue, // Kirim string PIC yang sudah digabung
+        pic: picValue,
         assigned_by: formData.assigned_by,
         progress_percentage: formData.progress_percentage,
         is_completed: true,
@@ -76,11 +75,17 @@ export default function AddDoneTaskPage() {
       console.error('Error inserting data:', error);
       alert('Gagal menyimpan data!');
     } else {
-      alert('Data berhasil ditambahkan!');
-      navigate('/done');
+      // Ganti alert dengan navigate dan state
+      navigate('/done', { 
+        state: { 
+          message: 'Data berhasil ditambahkan!', 
+          type: 'success' 
+        } 
+      });
     }
     setIsSubmitting(false);
   };
+
 
   return (
     <div className="p-8">

@@ -5,6 +5,8 @@ import { Plus, ArrowUpDown, FilePenLine, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate, useLocation } from 'react-router-dom';
 import type { Database } from '../database.types';
+import Notification from '@/components/ui/Notification';
+import ConfirmationModal from '@/components/ui/ConfirmationModal';
 
 type Task = Database['public']['Tables']['tasks_master']['Row'];
 
@@ -12,41 +14,47 @@ export default function DonePage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const location = useLocation(); // 1. Gunakan hook useLocatio
+  const location = useLocation();
 
-  // 1. TAMBAHKAN STATE UNTUK PAGINASI DAN SORTING
   const [currentPage, setCurrentPage] = useState(1);
   const [totalTasks, setTotalTasks] = useState(0);
   const [sort, setSort] = useState({ column: 'tanggal_terbit', ascending: false });
-
-  // 2. State baru untuk menyimpan nama kolom yang akan disorot
   const [highlightedColumn, setHighlightedColumn] = useState<string | null>(null);
   
+  // State untuk notifikasi
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
+
+  const [isModalOpen, setIsModalOpen] = useState(false); // <-- TAMBAHKAN INI
+  const [taskToDelete, setTaskToDelete] = useState<number | null>(null); // <-- TAMBAHKAN INI
+
   const itemsPerPage = 5;
   const from = (currentPage - 1) * itemsPerPage;
 
-  // 2. PERBARUI useEffect UNTUK MEMANTAU PERUBAHAN SORTING
+  useEffect(() => {
+    // Cek state dari navigasi untuk menampilkan notifikasi
+    if (location.state?.message && location.state?.type) {
+      setNotification({ message: location.state.message, type: location.state.type });
+      // Bersihkan state lokasi agar notifikasi tidak muncul lagi saat refresh
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
+
   useEffect(() => {
     fetchDoneTasks();
   }, [currentPage, sort]);
 
-  // useEffect baru untuk menangani sorotan kolom
   useEffect(() => {
     const colToHighlight = location.state?.highlightColumn;
     if (colToHighlight) {
       setHighlightedColumn(colToHighlight);
-      // Hapus sorotan setelah 3 detik
       const timer = setTimeout(() => {
         setHighlightedColumn(null);
-        // Hapus state dari URL
         navigate(location.pathname, { replace: true, state: {} }); 
       }, 3000);
       return () => clearTimeout(timer);
     }
   }, [location.state, navigate]);
 
-
-  // 3. PERBARUI FUNGSI FETCH DATA DENGAN LOGIKA SORTING & PAGINASI
   async function fetchDoneTasks() {
     setLoading(true);
     const to = from + itemsPerPage - 1;
@@ -55,7 +63,7 @@ export default function DonePage() {
       .from('tasks_master')
       .select('*', { count: 'exact' })
       .eq('is_completed', true)
-      .order(sort.column, { ascending: sort.ascending }) // <-- Order sekarang dinamis
+      .order(sort.column, { ascending: sort.ascending })
       .range(from, to);
 
     if (error) {
@@ -69,17 +77,36 @@ export default function DonePage() {
 
   const totalPages = Math.ceil(totalTasks / itemsPerPage);
 
-  // 4. TAMBAHKAN FUNGSI handleSort
   const handleSort = (columnName: string) => {
     const newAscending = sort.column === columnName ? !sort.ascending : true;
     setSort({ column: columnName, ascending: newAscending });
-    setCurrentPage(1); // Kembali ke halaman 1 setiap kali sorting diubah
+    setCurrentPage(1);
   };
 
-  const handleDelete = async (taskId: number) => {
-    if (window.confirm("Yakin ingin menghapus tugas ini?")) {
-      await supabase.from('tasks_master').delete().eq('id', taskId);
-      fetchDoneTasks();
+  // src/pages/DonePage.tsx
+
+  const openDeleteModal = (taskId: number) => {
+    setTaskToDelete(taskId);
+    setIsModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (taskToDelete === null) return;
+
+    const { error } = await supabase.from('tasks_master').delete().eq('id', taskToDelete);
+
+    setIsModalOpen(false);
+    setTaskToDelete(null);
+
+    if (error) {
+      alert('Gagal menghapus data.'); // Notifikasi jika gagal
+    } else {
+      // Tampilkan notifikasi sukses
+      setNotification({
+        message: 'Data berhasil dihapus!',
+        type: 'success',
+      });
+      fetchDoneTasks(); // Muat ulang data
     }
   };
 
@@ -87,8 +114,18 @@ export default function DonePage() {
     if (sort.column !== columnName) return null;
     return sort.ascending ? ' 🔼' : ' 🔽';
   };
+
   return (
     <div className="p-8 h-full overflow-y-auto">
+      {/* Render komponen notifikasi */}
+      {notification && (
+        <Notification
+          message={notification.message}
+          type={notification.type}
+          onClose={() => setNotification(null)}
+        />
+      )}
+
       <h1 className="text-3xl font-bold text-gray-800 mb-2">KR Done</h1>
       <div className="flex justify-between items-center mb-6">
         <Button className="bg-green-500 hover:bg-green-600" onClick={() => navigate('/add-done-task')}>
@@ -102,8 +139,6 @@ export default function DonePage() {
           <thead className="text-xs text-gray-700 uppercase bg-gray-50">
             <tr>
               <th scope="col" className="px-4 py-3 w-16 text-center">NO</th>
-              
-              {/* Kolom yang bisa di-sort dengan indikator baru */}
               <th scope="col" className="px-6 py-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('judul')}>
                 JUDUL<SortIndicator columnName="judul" />
               </th>
@@ -119,10 +154,8 @@ export default function DonePage() {
               <th scope="col" className="px-6 py-3 cursor-pointer hover:bg-gray-100 text-center" onClick={() => handleSort('durasi')}>
                 DURASI<SortIndicator columnName="durasi" />
               </th>
-
-              {/* Kolom yang tidak bisa di-sort */}
               <th scope="col" className="px-6 py-3">NO ND</th>
-               <th scope="col" className="px-6 py-3 cursor-pointer" onClick={() => handleSort('inisiator')}>Inisiator<SortIndicator columnName="inisiator" /></th>
+              <th scope="col" className="px-6 py-3 cursor-pointer" onClick={() => handleSort('inisiator')}>Inisiator<SortIndicator columnName="inisiator" /></th>
               <th scope="col" className="px-6 py-3 cursor-pointer" onClick={() => handleSort('pic')}>PIC<SortIndicator columnName="pic" /></th>
               <th scope="col" className="px-6 py-3 text-center w-28">AKSI</th>
             </tr>
@@ -145,8 +178,7 @@ export default function DonePage() {
                   <td className="px-6 py-4 text-center">
                     <div className="flex justify-center space-x-2">
                       <Button variant="outline" className="bg-blue-500 hover:bg-blue-600 text-white" size="sm" onClick={() => navigate(`/edit-done/${task.id}`)}><FilePenLine size={16} /></Button>
-                      <Button variant="destructive" size="sm" onClick={() => handleDelete(task.id)}><Trash2 size={16} /></Button>
-                    </div>
+<Button variant="destructive" size="sm" onClick={() => openDeleteModal(task.id)}><Trash2 size={16} /></Button>                  </div>
                   </td>
                 </tr>
               ))
@@ -155,7 +187,6 @@ export default function DonePage() {
         </table>
       </div>
 
-      {/* Menambahkan kembali Paginasi */}
       <div className="flex justify-center items-center space-x-2 mt-6">
         <Button onClick={() => setCurrentPage(1)} disabled={currentPage === 1 || totalPages === 0} variant="outline" size="sm">&lt;&lt;</Button>
         <Button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1 || totalPages === 0} variant="outline" size="sm">&lt;</Button>
@@ -163,6 +194,15 @@ export default function DonePage() {
         <Button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages || totalPages === 0} variant="outline" size="sm">&gt;</Button>
         <Button onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages || totalPages === 0} variant="outline" size="sm">&gt;&gt;</Button>
       </div>
+
+      <ConfirmationModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title="Konfirmasi Hapus Data"
+        message="Apakah Anda yakin ingin menghapus data ini secara permanen? Tindakan ini tidak dapat diurungkan."
+      />
     </div>
   );
+
 }

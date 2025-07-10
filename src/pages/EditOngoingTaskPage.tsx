@@ -9,8 +9,6 @@ import { eachDayOfInterval, isSameDay, isWeekend, addDays, startOfDay, differenc
   const navigate = useNavigate();
   const { taskId } = useParams();
   const location = useLocation();
-const mockTodayFromState = location.state?.mockToday ? new Date(location.state.mockToday) : null;
-
   const [formData, setFormData] = useState({
     judul: '',
     id_risk: 0,
@@ -33,6 +31,8 @@ const mockTodayFromState = location.state?.mockToday ? new Date(location.state.m
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [tanggalPauseManual, setTanggalPauseManual] = useState<string>('');
+  const [tanggalResumeManual, setTanggalResumeManual] = useState<string>('');
+
 
   // SALIN FUNGSI KALKULASI DARI OngoingPage.tsx
   const calculateWorkingDaysBetween = useCallback((start: Date, end: Date): number => {
@@ -150,26 +150,7 @@ const mockTodayFromState = location.state?.mockToday ? new Date(location.state.m
     }
   };
   
-  // GANTI FUNGSI LAMA ANDA DENGAN YANG INI
-// GANTI SELURUH FUNGSI LAMA ANDA DENGAN YANG INI
-// src/pages/EditOngoingTaskPage.tsx
 
-// GANTI SELURUH FUNGSI handleSubmit ANDA DENGAN INI
-// src/pages/EditOngoingTaskPage.tsx
-
-// GANTI SELURUH FUNGSI handleSubmit ANDA DENGAN VERSI FINAL INI
-// src/pages/EditOngoingTaskPage.tsx
-
-// GANTI SELURUH FUNGSI handleSubmit ANDA DENGAN KODE INI
-// src/pages/EditOngoingTaskPage.tsx
-
-// GANTI FUNGSI handleSubmit ANDA DENGAN KODE INI
-// src/pages/EditOngoingTaskPage.tsx
-
-// GANTI SELURUH FUNGSI handleSubmit ANDA DENGAN KODE FINAL INI
-// src/pages/EditOngoingTaskPage.tsx
-
-// GANTI SELURUH FUNGSI handleSubmit ANDA DENGAN KODE INI
 const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
   e.preventDefault();
   
@@ -181,14 +162,15 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
   const initialCountdown = location.state?.initialCountdown;
   setIsSubmitting(true);
 
-  const today = startOfDay(mockTodayFromState || new Date());
+  const today = startOfDay(new Date());
   const todayISO = today.toISOString().split('T')[0];
 
   const form = e.currentTarget;
   const formDataObj = new FormData(form);
+  // Ambil nilai dari kedua date picker manual
   const manualPauseDateFromForm = formDataObj.get('tanggal_pause_manual') as string;
+  const manualResumeDateFromForm = formDataObj.get('tanggal_resume_manual') as string;
 
-  // Mengambil semua data dari form untuk memastikan konsistensi
   const updatePayload: any = {
     judul: formDataObj.get('judul'),
     id_risk: Number(formDataObj.get('id_risk')),
@@ -208,23 +190,16 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
   const isResuming = !initialTaskState.is_data_complete && isDataComplete;
 
   if (isPausing) {
-    // --- LOGIKA BARU UNTUK MENANGANI PAUSE MANUAL ---
     let sisaDurasiToSave: number;
     let pauseDateToSave: string;
 
     if (manualPauseDateFromForm) {
-      // JIKA TANGGAL MANUAL DIPILIH:
       pauseDateToSave = manualPauseDateFromForm;
       const manualPauseDate = startOfDay(new Date(manualPauseDateFromForm + 'T00:00:00'));
-
-      // 1. Hitung deadline tugas berdasarkan data asli
       const startDate = startOfDay(new Date(initialTaskState.tanggal_terbit));
       const deadline = calculateDeadline(startDate, initialTaskState.durasi);
-
-      // 2. Hitung ulang sisa waktu berdasarkan tanggal manual tersebut
       sisaDurasiToSave = calculateWorkingDaysBetween(addDays(manualPauseDate, 1), deadline);
     } else {
-      // JIKA TIDAK ADA TANGGAL MANUAL, gunakan data hari ini
       pauseDateToSave = todayISO;
       sisaDurasiToSave = initialCountdown ?? 0;
     }
@@ -236,7 +211,11 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
 
   } else if (isResuming) {
     updatePayload.is_data_complete = true;
-    updatePayload.tanggal_resume = todayISO;
+    
+    // --- PERUBAHAN LOGIKA RESUME ---
+    // Gunakan tanggal resume manual jika ada, jika tidak, baru gunakan tanggal hari ini.
+    const resumeDateToSave = manualResumeDateFromForm ? manualResumeDateFromForm : todayISO;
+    updatePayload.tanggal_resume = resumeDateToSave;
   
   } else {
     updatePayload.is_data_complete = isDataComplete;
@@ -251,8 +230,13 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     console.error("Error updating:", error);
     alert('Gagal menyimpan perubahan!');
   } else {
-    alert('Perubahan berhasil disimpan!');
-    navigate('/ongoing', { state: { highlightedTaskId: parseInt(taskId!) } });
+    navigate('/ongoing', { 
+      state: { 
+        message: 'Perubahan berhasil disimpan!', 
+        type: 'info',
+        highlightedTaskId: parseInt(taskId!) 
+      } 
+    });
   }
   setIsSubmitting(false);
 };
@@ -302,6 +286,26 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
           <span className="ml-2 text-gray-600">Lengkap (countdown berjalan)</span>
       </div>
   </div>
+
+  {formData.is_data_complete && initialTaskState?.tanggal_pause && (
+  <div className="grid grid-cols-3 items-center gap-4 bg-green-50 p-3 rounded-md border border-green-200 ring-2 ring-green-100">
+    <label htmlFor="tanggal_resume_manual" className="text-right font-semibold text-green-800">Tanggal Berakhir Pause</label>
+    <div className="col-span-2">
+      <input
+        type="date"
+        id="tanggal_resume_manual"
+        name="tanggal_resume_manual" // <-- Atribut name penting!
+        value={tanggalResumeManual}
+        onChange={(e) => setTanggalResumeManual(e.target.value)}
+        className="border p-2 rounded-md"
+      />
+      <p className="text-xs text-gray-500 mt-1">
+        Kosongkan jika tanggal resume adalah hari ini.
+      </p>
+    </div>
+  </div>
+)}
+
 
   {/* -- INPUT TANGGAL PAUSE MANUAL -- */}
 {!formData.is_data_complete && (

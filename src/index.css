@@ -31,13 +31,30 @@
   }
 
   /* CSS BARU UNTUK GARIS BAWAH */
-.rbc-day-bg.red-day {
-  background-color: transparent !important; /* Hapus latar belakang */
+  .rbc-day-bg.red-day {
+    background-color: transparent !important; /* Hapus latar belakang */
+  }
+
+  .rbc-day-bg.red-day + .rbc-row-content .rbc-date-cell .rbc-button {
+    border-bottom: 2px solid #ef4444; /* Garis bawah merah */
+    border-radius: 0; /* Opsional: hilangkan bentuk bulat agar garis lurus */
+    padding-bottom: 1px;
+  }
 }
 
-.rbc-day-bg.red-day + .rbc-row-content .rbc-date-cell .rbc-button {
-  border-bottom: 2px solid #ef4444; /* Garis bawah merah */
-  border-radius: 0; /* Opsional: hilangkan bentuk bulat agar garis lurus */
-  padding-bottom: 1px;
-}
+/* Pisahkan @layer utilities dari @layer base */
+@layer utilities {
+  @keyframes slide-in {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+  .animate-slide-in {
+    animation: slide-in 0.5s ease-out forwards;
+  }
 }
