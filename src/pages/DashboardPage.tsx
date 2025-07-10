@@ -7,6 +7,7 @@ import CalendarWidget from '../components/CalendarWidget';
 import StatusPieChart from '../components/StatusPieChart';
 import TaskListModal from '../components/TaskListModal';
 import { useNavigate } from 'react-router-dom';
+import YearScroller from '../components/YearScroller'; // Impor komponen baru
 import type { Database } from '../database.types';
 
 export type Notification = {
@@ -36,7 +37,6 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
-  const availableYears = [2030, 2029, 2028, 2027, 2026, 2025, 2024, 2023];
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTasks, setSelectedTasks] = useState<Task[]>([]);
@@ -205,8 +205,8 @@ export default function DashboardPage() {
     }
   };
 
-  const handleYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedYear(Number(e.target.value));
+  const handleYearChange = (year: number) => {
+    setSelectedYear(year);
   };
 
   return (
@@ -229,10 +229,8 @@ export default function DashboardPage() {
           </div>
           
           <div className="flex space-x-6 items-center">
-            <div className="flex-none w-40">
-              <select value={selectedYear} onChange={handleYearChange} className="w-full rounded-md border p-2 bg-white shadow-sm">
-                {availableYears.map(year => (<option key={year} value={year}>{year}</option>))}
-              </select>
+            <div className="flex-none">
+              <YearScroller selectedYear={selectedYear} onYearChange={handleYearChange} />
             </div>
             <div className="flex-grow grid grid-cols-4 gap-6">
               {stats.map((stat, index) => {
